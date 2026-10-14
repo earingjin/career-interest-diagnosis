@@ -18,18 +18,35 @@ export type EnterInput = {
   phoneLast4: string;
 };
 
+// origin 비교용 정리: 앞뒤 공백과 끝의 / 를 없애고 소문자로 바꾼다. 와일드카드나 부분 일치는 쓰지 않는다.
+function normalizeOrigin(value: string): string {
+  return value.trim().replace(/\/+$/, "").toLowerCase();
+}
+
+/** 환경 변수 ALLOWED_ORIGINS(쉼표로 구분)에 적힌 추가 허용 origin 목록. 없으면 빈 목록. */
+function allowedOrigins(): string[] {
+  return (process.env.ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map(normalizeOrigin)
+    .filter((origin) => origin !== "");
+}
+
 /**
  * 상태를 바꾸는 요청(POST)에서만 호출한다. GET 에는 적용하지 않는다.
- * Origin 헤더가 없거나 요청 URL 의 origin 과 다르면 false.
+ * Origin 헤더가 요청 URL 의 origin 과 같거나, ALLOWED_ORIGINS 에 정확히 적힌 값이면 true.
+ * Origin 헤더가 없으면 false.
  */
 export function isSameOriginRequest(request: Request): boolean {
   const origin = request.headers.get("origin");
   if (!origin) return false;
+
+  const normalized = normalizeOrigin(origin);
   try {
-    return origin === new URL(request.url).origin;
+    if (normalized === normalizeOrigin(new URL(request.url).origin)) return true;
   } catch {
-    return false;
+    // 요청 URL 을 해석할 수 없으면 허용 목록만 본다.
   }
+  return allowedOrigins().includes(normalized);
 }
 
 function asRecord(body: unknown): Record<string, unknown> {

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
@@ -187,5 +187,65 @@ describe("parseCourseCodeField (제출 body)", () => {
     for (const body of [undefined, null, "x", []]) {
       expect(() => parseCourseCodeField(body)).toThrow(RequestValidationError);
     }
+  });
+});
+
+describe("isSameOriginRequest (ALLOWED_ORIGINS)", () => {
+  const url = "http://localhost:3000/api/session/enter";
+  const phone = "http://192.168.0.10:3000";
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("같은 origin → true (ALLOWED_ORIGINS 가 없어도)", () => {
+    vi.stubEnv("ALLOWED_ORIGINS", "");
+    expect(isSameOriginRequest(post(url, "http://localhost:3000"))).toBe(true);
+  });
+
+  it("다른 origin, ALLOWED_ORIGINS 없음 → false", () => {
+    vi.stubEnv("ALLOWED_ORIGINS", undefined);
+    expect(isSameOriginRequest(post(url, phone))).toBe(false);
+    vi.stubEnv("ALLOWED_ORIGINS", "");
+    expect(isSameOriginRequest(post(url, phone))).toBe(false);
+  });
+
+  it("다른 origin, ALLOWED_ORIGINS 에 포함 → true", () => {
+    vi.stubEnv("ALLOWED_ORIGINS", phone);
+    expect(isSameOriginRequest(post(url, phone))).toBe(true);
+    vi.stubEnv("ALLOWED_ORIGINS", `https://a.example, ${phone} ,https://b.example`);
+    expect(isSameOriginRequest(post(url, phone))).toBe(true);
+  });
+
+  it("다른 origin, ALLOWED_ORIGINS 에 불포함 → false", () => {
+    vi.stubEnv("ALLOWED_ORIGINS", "https://a.example,http://192.168.0.11:3000");
+    expect(isSameOriginRequest(post(url, phone))).toBe(false);
+  });
+
+  it('"*" 가 포함되어도 다른 origin 은 false', () => {
+    vi.stubEnv("ALLOWED_ORIGINS", "*");
+    expect(isSameOriginRequest(post(url, phone))).toBe(false);
+    vi.stubEnv("ALLOWED_ORIGINS", "http://*.168.0.10:3000,*,http://192.168.*");
+    expect(isSameOriginRequest(post(url, phone))).toBe(false);
+  });
+
+  it("끝의 슬래시, 공백, 대소문자가 달라도 같은 origin 으로 인정한다", () => {
+    vi.stubEnv("ALLOWED_ORIGINS", "  HTTP://192.168.0.10:3000/  ");
+    expect(isSameOriginRequest(post(url, phone))).toBe(true);
+    vi.stubEnv("ALLOWED_ORIGINS", "https://App.Example.com///");
+    expect(isSameOriginRequest(post("https://x.example/api", "https://app.example.com"))).toBe(true);
+  });
+
+  it("부분 일치는 허용하지 않는다 (포트, 프로토콜, 접두사가 다르면 false)", () => {
+    vi.stubEnv("ALLOWED_ORIGINS", "http://192.168.0.10:3000");
+    expect(isSameOriginRequest(post(url, "http://192.168.0.10:30000"))).toBe(false);
+    expect(isSameOriginRequest(post(url, "https://192.168.0.10:3000"))).toBe(false);
+    expect(isSameOriginRequest(post(url, "http://192.168.0.1"))).toBe(false);
+    expect(isSameOriginRequest(post(url, "http://192.168.0.10:3000.evil.com"))).toBe(false);
+  });
+
+  it("Origin 헤더가 없으면 허용 목록이 있어도 false", () => {
+    vi.stubEnv("ALLOWED_ORIGINS", phone);
+    expect(isSameOriginRequest(post(url))).toBe(false);
   });
 });

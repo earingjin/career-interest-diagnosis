@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { isEntryReady } from "@/lib/session/entryForm";
 import styles from "./EntryForm.module.css";
 
 const NETWORK_ERROR = "연결에 문제가 생겼어요. 잠시 후 다시 시도해 주세요.";
@@ -14,13 +15,28 @@ export function EntryForm({ courseCode }: { courseCode: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 서버가 NFC 정규화 후 검증하므로 길이도 같은 기준으로 센다. 나머지 규칙은 서버가 판단한다.
-  const nicknameReady = nickname.normalize("NFC").trim().length >= 2;
-  const canSubmit = nicknameReady && /^[0-9]{4}$/.test(phoneLast4) && consent && !submitting;
+  const nicknameRef = useRef<HTMLInputElement | null>(null);
+  const phoneRef = useRef<HTMLInputElement | null>(null);
+  const consentRef = useRef<HTMLInputElement | null>(null);
+
+  // 버튼 활성 조건은 isEntryReady 하나로만 정한다 (서버 규칙과 같은 판단).
+  const canSubmit = isEntryReady(nickname, phoneLast4, consent) && !submitting;
+
+  // 모바일 자동완성은 onChange를 거치지 않을 수 있어 입력칸의 실제 값도 동기화한다.
+  function syncInputValues() {
+    const domNickname = nicknameRef.current?.value ?? "";
+    const domPhone = phoneRef.current?.value ?? "";
+    const domConsent = consentRef.current?.checked ?? false;
+    setNickname(domNickname);
+    setPhoneLast4(domPhone.replace(/[^0-9]/g, ""));
+    setConsent(domConsent);
+  }
+
+  useEffect(syncInputValues, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canSubmit) return;
+    if (submitting || !isEntryReady(nickname, phoneLast4, consent)) return;
 
     setSubmitting(true);
     setError(null);
@@ -44,7 +60,7 @@ export function EntryForm({ courseCode }: { courseCode: string }) {
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form className={styles.form} onSubmit={handleSubmit} onInput={syncInputValues} onBlur={syncInputValues}>
       <div className={styles.field}>
         <label className={styles.label} htmlFor="nickname">
           닉네임
@@ -54,6 +70,7 @@ export function EntryForm({ courseCode }: { courseCode: string }) {
         </span>
         <input
           id="nickname"
+          ref={nicknameRef}
           className={styles.input}
           type="text"
           value={nickname}
@@ -71,6 +88,7 @@ export function EntryForm({ courseCode }: { courseCode: string }) {
         </label>
         <input
           id="phoneLast4"
+          ref={phoneRef}
           className={styles.input}
           type="text"
           inputMode="numeric"
@@ -93,6 +111,7 @@ export function EntryForm({ courseCode }: { courseCode: string }) {
         <input
           className={styles.checkbox}
           type="checkbox"
+          ref={consentRef}
           checked={consent}
           onChange={(e) => setConsent(e.target.checked)}
         />
