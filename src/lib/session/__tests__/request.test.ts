@@ -5,6 +5,7 @@ vi.mock("server-only", () => ({}));
 import {
   RequestValidationError,
   isSameOriginRequest,
+  parseCourseCodeField,
   parseEnterBody,
   parseResponseBody,
   parseStepBody,
@@ -163,6 +164,28 @@ describe("parseResponseBody", () => {
   it("객체가 아닌 본문은 거부한다", () => {
     for (const b of [undefined, null, "x", []]) {
       expect(() => parseResponseBody(b)).toThrow(RequestValidationError);
+    }
+  });
+});
+
+describe("parseCourseCodeField (제출 body)", () => {
+  it("올바른 과정 코드만 있는 body 는 과정 코드를 돌려준다", () => {
+    expect(parseCourseCodeField({ courseCode: COURSE_CODE })).toBe(COURSE_CODE);
+  });
+
+  it("과정 코드 외의 필드는 무시한다", () => {
+    expect(parseCourseCodeField({ courseCode: COURSE_CODE, sessionId: "x", result: {} })).toBe(COURSE_CODE);
+  });
+
+  it("과정 코드가 없거나 형식이 틀리면 거부한다", () => {
+    for (const courseCode of [undefined, null, "", "TEST01", "a".repeat(15), `${"a".repeat(16)}!`, 1234]) {
+      expect(() => parseCourseCodeField({ courseCode }), String(courseCode)).toThrow(/과정 코드/);
+    }
+  });
+
+  it("객체가 아닌 body 는 거부한다", () => {
+    for (const body of [undefined, null, "x", []]) {
+      expect(() => parseCourseCodeField(body)).toThrow(RequestValidationError);
     }
   });
 });

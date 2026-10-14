@@ -196,5 +196,8 @@ export function useResponseSaver({ courseCode, sessionId, onRestore, onSubmitted
     [getQueue, flush],
   );
 
-  return { enqueue, enqueueStep, pendingCount, failed, sessionLost };
+  /** 지금 큐에 남아 있는 항목 수 (flush 를 기다린 뒤 확인할 때 쓴다). */
+  const pendingSize = useCallback(() => getQueue().size(), [getQueue]);
+
+  return { enqueue, enqueueStep, flush, pendingSize, pendingCount, failed, sessionLost };
 }

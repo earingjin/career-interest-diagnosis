@@ -15,6 +15,7 @@ import {
   resolveResumeStep,
 } from "@/lib/session/progress";
 import { isStepItem, type PendingItem } from "@/lib/session/saveQueue";
+import { ReviewScreen } from "./ReviewScreen";
 import styles from "./TestFlow.module.css";
 import { useResponseSaver } from "./useResponseSaver";
 
@@ -319,21 +320,19 @@ export function TestFlow({
     );
   } else {
     screen = (
-      <>
-        <div className={styles.centerArea}>
-          <h1 className={styles.title} tabIndex={-1} ref={headingRef}>
-            제출 확인 화면은 6단계에서 만듭니다
-          </h1>
-          <p className={styles.body}>
-            일반성향 응답 {answeredCount}개, 형용사 선택 {selectedCount}개
-          </p>
-        </div>
-        <div className={styles.footer}>
-          <button type="button" className={styles.secondary} onClick={() => go(prevStep(step))}>
-            ← 이전
-          </button>
-        </div>
-      </>
+      <ReviewScreen
+        courseCode={courseCode}
+        answeredCount={answeredCount}
+        selectedCount={selectedCount}
+        headingRef={headingRef}
+        onGoToFirstUnanswered={() => go(firstUnansweredGeneral(new Set(answeredIds)))}
+        onGoToAdjectives={() => goForward("adjectives", counts, answeredIds)}
+        onBack={() => go(prevStep(step))}
+        drainQueue={async () => {
+          await saver.flush();
+          return saver.pendingSize();
+        }}
+      />
     );
   }
 

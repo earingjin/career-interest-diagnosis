@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "verify:step5": "node --env-file=.env.local scripts/verify-step5.mjs",
+    "verify:step6": "node --env-file=.env.local scripts/verify-step6.mjs",
     "test:db": "node --env-file=.env.local ./node_modules/vitest/vitest.mjs run src/db"
   },
   "dependencies": {
