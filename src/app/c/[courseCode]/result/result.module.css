@@ -1,0 +1,507 @@
+/* 결과 화면: 모바일(mobile)과 A4 결과지(print)가 같은 컴포넌트를 쓴다. */
+
+.root {
+  --bg-accent: #cfe0ff;
+  --border-accent: #1a3f9c;
+  --text: #171717;
+  --muted: #555555;
+  --line: #d4d4d8;
+  color: var(--text);
+}
+
+/* ===== 화면에서 무엇이 보이는지 ===== */
+.mobileArea {
+  display: block;
+}
+
+.printArea {
+  display: none;
+}
+
+.root[data-preview="true"] .mobileArea {
+  display: none;
+}
+
+.root[data-preview="true"] .printArea {
+  display: block;
+}
+
+/* ===== 모바일 ===== */
+.mobile {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1.25rem 1.25rem 2.5rem;
+  font-size: 1rem; /* 18px */
+  line-height: 1.6;
+}
+
+.mHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.mCourse,
+.mDate {
+  font-size: 1rem;
+  color: var(--muted);
+}
+
+.mTitle {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+}
+
+.cardFirst {
+  background: var(--bg-accent);
+  border: 3px solid var(--border-accent);
+}
+
+.cardSecond {
+  background: #ffffff;
+  border: 1px solid var(--line);
+}
+
+.cardRank {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.cardFirst .cardRank {
+  color: var(--border-accent);
+}
+
+.cardName {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.cardEn,
+.cardSubtitle {
+  font-size: 1rem;
+  color: var(--muted);
+}
+
+.mSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.mHeading {
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.mHeadingEn {
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.mHexagon {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 1.25rem; /* 라벨이 꼭짓점 바깥으로 나올 자리 */
+}
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.group {
+  break-inside: avoid;
+}
+
+.groupTitle {
+  padding-bottom: 0.25rem;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--border-accent);
+  border-bottom: 2px solid var(--border-accent);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e4e4e7;
+}
+
+.row dt {
+  font-weight: 700;
+}
+
+.jobs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  break-inside: avoid;
+}
+
+.jobList {
+  padding-left: 1.75rem;
+}
+
+.jobList li {
+  padding: 0.15rem 0;
+}
+
+.table {
+  width: 100%;
+  font-size: 1rem;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 0.6rem 0.4rem;
+  text-align: center;
+  border-bottom: 1px solid var(--line);
+}
+
+.table thead th {
+  font-weight: 700;
+  background: #f4f4f5;
+}
+
+.table tbody th {
+  text-align: left;
+  font-weight: 600;
+}
+
+.rowEmphasized th,
+.rowEmphasized td {
+  font-weight: 800;
+  background: var(--bg-accent);
+}
+
+.rankBadge {
+  display: block;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--border-accent);
+}
+
+.mFooter {
+  display: flex;
+  flex-direction: column;
+}
+
+.printButton,
+.backButton {
+  min-height: 56px;
+  padding: 0 1.25rem;
+  font-family: inherit;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 0.5rem;
+}
+
+.printButton {
+  color: #ffffff;
+  background: #1a56db;
+  border: 0;
+}
+
+.backButton {
+  color: var(--text);
+  background: #ffffff;
+  border: 2px solid #767676;
+}
+
+.printButton:focus-visible,
+.backButton:focus-visible {
+  outline: 3px solid #171717;
+  outline-offset: 2px;
+}
+
+/* ===== A4 미리보기 (화면) ===== */
+.previewBar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  background: #ffffff;
+  border-bottom: 1px solid var(--line);
+}
+
+.previewHint {
+  font-size: 1rem;
+  color: var(--muted);
+}
+
+.previewButtons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.printArea {
+  background: #e5e7eb;
+}
+
+.previewFrame {
+  position: relative;
+  margin: 1rem auto 2rem;
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+}
+
+.previewScale {
+  width: 794px;
+  height: 1123px;
+  transform-origin: top left;
+}
+
+/* ===== A4 결과지 (210 x 297mm, 한 장) ===== */
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 3mm;
+  width: 210mm;
+  height: 296mm; /* 297mm 보다 살짝 작게 해서 반올림 오차로 두 장이 되지 않게 한다 */
+  padding: 8mm 10mm 7mm;
+  overflow: hidden;
+  font-size: 10pt;
+  line-height: 1.35;
+  color: #111111;
+  background: #ffffff;
+  break-inside: avoid;
+}
+
+.sheet,
+.sheet * {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.pHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6mm;
+  padding-bottom: 2mm;
+  border-bottom: 0.4mm solid #111111;
+}
+
+.pInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 1mm;
+  font-size: 10pt;
+}
+
+.pTitle {
+  margin-bottom: 1.5mm;
+  font-size: 20pt;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.pHexagon {
+  flex: none;
+  width: 68mm;
+  margin-right: 10mm; /* 오른쪽 라벨이 그래프 밖으로 나올 자리 */
+}
+
+.pColumns {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: 1fr 1fr;
+  gap: 5mm;
+  min-height: 0;
+}
+
+.pColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5mm;
+  min-width: 0;
+}
+
+.sheet .card {
+  display: block;
+  padding: 2mm 3mm;
+  border-radius: 2mm;
+  break-inside: avoid;
+}
+
+.sheet .cardFirst {
+  border-width: 0.8mm;
+}
+
+.sheet .cardRank {
+  display: inline;
+  margin-right: 2mm;
+  font-size: 10pt;
+}
+
+.sheet .cardName {
+  display: inline;
+  font-size: 15pt;
+}
+
+.sheet .cardEn {
+  display: inline;
+  margin-left: 1.5mm;
+  font-size: 10pt;
+}
+
+.sheet .cardSubtitle {
+  font-size: 10pt;
+}
+
+.sheet .groups {
+  gap: 2mm;
+}
+
+.sheet .groupTitle {
+  padding-bottom: 0.5mm;
+  font-size: 10pt;
+  border-bottom-width: 0.4mm;
+}
+
+.sheet .row {
+  grid-template-columns: 15mm 1fr;
+  gap: 2mm;
+  padding: 0.8mm 0;
+  border-bottom-width: 0.2mm;
+}
+
+.sheet .jobs {
+  gap: 1mm;
+}
+
+.sheet .jobList {
+  padding-left: 5mm;
+  columns: 1;
+}
+
+.sheet .jobList li {
+  padding: 0;
+}
+
+.pScores {
+  break-inside: avoid;
+}
+
+.pTable {
+  width: 100%;
+  table-layout: fixed;
+  font-size: 10pt;
+  text-align: center;
+  border-collapse: collapse;
+}
+
+.pTable th,
+.pTable td {
+  padding: 1.2mm 1mm;
+  vertical-align: top;
+  border: 0.25mm solid #777777;
+}
+
+.pTable th {
+  font-weight: 700;
+  background: #f1f1f3;
+}
+
+.pTable .cellEmphasized {
+  background: var(--bg-accent);
+}
+
+.pRank {
+  display: block;
+  font-size: 10pt;
+  font-weight: 800;
+  color: var(--border-accent);
+}
+
+.pParts {
+  display: block;
+  font-size: 10pt;
+  color: #444444;
+}
+
+.pFooter {
+  padding-top: 1.5mm;
+  font-size: 10pt;
+  color: #555555;
+  text-align: center;
+  border-top: 0.25mm solid #999999;
+}
+
+/* ===== 인쇄 ===== */
+@media print {
+  :global(html),
+  :global(body) {
+    height: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    background: #ffffff;
+  }
+
+  /* 모바일 화면과 버튼은 숨기고 A4 결과지만 보이게 한다. */
+  .mobileArea,
+  .previewBar {
+    display: none !important;
+  }
+
+  .printArea {
+    display: block !important;
+    background: none;
+  }
+
+  .previewFrame {
+    width: 210mm !important;
+    height: 296mm !important;
+    margin: 0 !important;
+    overflow: hidden;
+    box-shadow: none;
+  }
+
+  .previewScale {
+    width: 210mm;
+    height: 296mm;
+    transform: none !important;
+  }
+
+  .sheet {
+    break-after: avoid;
+  }
+}
