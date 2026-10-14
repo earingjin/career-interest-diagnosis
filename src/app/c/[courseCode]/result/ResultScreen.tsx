@@ -199,7 +199,7 @@ function PrintColumn({ section, rank }: { section: ResultTypeSection; rank: 1 | 
 
 function PrintLayout({ view }: { view: ResultView }) {
   return (
-    <div className={styles.sheet}>
+    <div className={styles.sheet} data-print-sheet="true">
       <header className={styles.pHeader}>
         <div className={styles.pInfo}>
           <h1 className={styles.pTitle}>직업선호도 검사 결과</h1>

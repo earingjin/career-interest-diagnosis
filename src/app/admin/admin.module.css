@@ -1,0 +1,106 @@
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: 3rem 1.25rem;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.muted {
+  color: #555555;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.label {
+  font-weight: 600;
+}
+
+.input {
+  min-height: 48px;
+  padding: 0 0.75rem;
+  font-family: inherit;
+  font-size: 1rem;
+  border: 2px solid #767676;
+  border-radius: 0.5rem;
+}
+
+.button,
+.link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 1.25rem;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #ffffff;
+  text-decoration: none;
+  cursor: pointer;
+  background: #1a56db;
+  border: 0;
+  border-radius: 0.5rem;
+}
+
+.secondary {
+  color: #171717;
+  background: #ffffff;
+  border: 2px solid #767676;
+}
+
+.button:disabled {
+  color: #4b4b4b;
+  cursor: not-allowed;
+  background: #d4d4d8;
+}
+
+.input:focus-visible,
+.button:focus-visible,
+.link:focus-visible {
+  outline: 3px solid #171717;
+  outline-offset: 2px;
+}
+
+.error {
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  color: #9b1c1c;
+  background: #fdecec;
+  border-radius: 0.5rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.resultsMain { max-width: 72rem; }
+.dateForm { display: flex; flex-wrap: wrap; align-items: end; gap: 0.75rem; }
+.tableWrap { overflow-x: auto; }
+.table { width: 100%; min-width: 42rem; border-collapse: collapse; text-align: left; }
+.table th, .table td { padding: 0.75rem; border-bottom: 1px solid #d4d4d8; }
+.table th { background: #f4f4f5; }
+.table time { white-space: nowrap; }
+.caption { text-align: left; padding-bottom: 0.5rem; font-weight: 600; }
+.errorText { color: #9b1c1c; font-weight: 600; }
+
+.rowLink { color: #1a3f9c; font-weight: 700; text-decoration: underline; }
+.rowLink:focus-visible { outline: 3px solid #171717; outline-offset: 2px; }
