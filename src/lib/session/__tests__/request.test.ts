@@ -1,0 +1,114 @@
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("server-only", () => ({}));
+
+import { RequestValidationError, isSameOriginRequest, parseEnterBody, parseStepBody } from "../request";
+
+const COURSE_CODE = "abcDEF0123456789_-xy";
+
+function post(url: string, origin?: string) {
+  return new Request(url, { method: "POST", headers: origin ? { origin } : {} });
+}
+
+const validBody = () => ({ courseCode: COURSE_CODE, nickname: "나무", phoneLast4: "1234", consent: true });
+
+describe("isSameOriginRequest", () => {
+  it("Origin 이 요청 URL 의 origin 과 같으면 true", () => {
+    expect(isSameOriginRequest(post("https://example.com/api/session/enter", "https://example.com"))).toBe(true);
+    expect(isSameOriginRequest(post("http://localhost:3000/api/session/enter", "http://localhost:3000"))).toBe(true);
+  });
+
+  it("Origin 헤더가 없으면 false", () => {
+    expect(isSameOriginRequest(post("https://example.com/api/session/enter"))).toBe(false);
+  });
+
+  it("다른 도메인, 다른 포트, 다른 프로토콜의 Origin 은 false", () => {
+    expect(isSameOriginRequest(post("https://example.com/x", "https://evil.example"))).toBe(false);
+    expect(isSameOriginRequest(post("http://localhost:3000/x", "http://localhost:3001"))).toBe(false);
+    expect(isSameOriginRequest(post("https://example.com/x", "http://example.com"))).toBe(false);
+  });
+
+  it('Origin 이 "null" 이거나 URL 이 아니면 false', () => {
+    expect(isSameOriginRequest(post("https://example.com/x", "null"))).toBe(false);
+    expect(isSameOriginRequest(post("https://example.com/x", "not a url"))).toBe(false);
+  });
+});
+
+describe("parseEnterBody", () => {
+  it("올바른 본문은 courseCode, nickname, phoneLast4 만 돌려준다", () => {
+    expect(parseEnterBody(validBody())).toEqual({
+      courseCode: COURSE_CODE,
+      nickname: "나무",
+      phoneLast4: "1234",
+    });
+  });
+
+  it("조합 자쏘(분리형)는 NFC 로 합친 뒤 검증한다", () => {
+    const decomposed = "나무"; // ᄂ+ᅡ+ᄆ+ᅮ → 나무
+    expect(decomposed).not.toBe("나무");
+    expect(decomposed.normalize("NFC")).toBe("나무");
+    expect(parseEnterBody({ ...validBody(), nickname: decomposed }).nickname).toBe("나무");
+  });
+
+  it("분리형 한 글자는 합쳐져도 1자이므로 거부한다", () => {
+    expect(() => parseEnterBody({ ...validBody(), nickname: "가" })).toThrow(RequestValidationError);
+  });
+
+  it("앞뒤 공백은 제거하고, 중간 공백은 거부한다", () => {
+    expect(parseEnterBody({ ...validBody(), nickname: "  나무  " }).nickname).toBe("나무");
+    expect(() => parseEnterBody({ ...validBody(), nickname: "나 무" })).toThrow(RequestValidationError);
+  });
+
+  it("닉네임 규칙: 1자, 11자, 특수문자는 거부하고 2~10자는 허용한다", () => {
+    for (const nickname of ["가", "가".repeat(11), "나무!", "", "ㄱㅏ"]) {
+      expect(() => parseEnterBody({ ...validBody(), nickname }), nickname).toThrow(/닉네임/);
+    }
+    for (const nickname of ["나무", "ab12", "가".repeat(10)]) {
+      expect(parseEnterBody({ ...validBody(), nickname }).nickname).toBe(nickname);
+    }
+    expect(() => parseEnterBody({ ...validBody(), nickname: 1234 })).toThrow(/닉네임/);
+  });
+
+  it("휴대폰 뒷자리는 정확히 숫자 4자리여야 한다", () => {
+    for (const phoneLast4 of ["123", "12345", "12a4", "", " 123", "1234\n", 1234]) {
+      expect(() => parseEnterBody({ ...validBody(), phoneLast4 }), String(phoneLast4)).toThrow(/뒷자리/);
+    }
+  });
+
+  it("동의(consent)는 정확히 true 여야 한다", () => {
+    for (const consent of [false, undefined, "true", 1, null]) {
+      expect(() => parseEnterBody({ ...validBody(), consent }), String(consent)).toThrow(/동의/);
+    }
+  });
+
+  it("과정 코드는 [A-Za-z0-9_-] 16자 이상이어야 한다", () => {
+    for (const courseCode of ["TEST01", "a".repeat(15), `${"a".repeat(15)}!`, undefined]) {
+      expect(() => parseEnterBody({ ...validBody(), courseCode }), String(courseCode)).toThrow(/과정 코드/);
+    }
+  });
+
+  it("객체가 아닌 본문은 거부한다", () => {
+    for (const body of [undefined, null, "x", 1, []]) {
+      expect(() => parseEnterBody(body)).toThrow(RequestValidationError);
+    }
+  });
+});
+
+describe("parseStepBody", () => {
+  it("general-1 ~ general-42, adjectives-intro, adjectives, review 는 허용한다", () => {
+    const steps = [
+      ...Array.from({ length: 42 }, (_, i) => `general-${i + 1}`),
+      "adjectives-intro",
+      "adjectives",
+      "review",
+    ];
+    for (const step of steps) expect(parseStepBody({ step })).toBe(step);
+  });
+
+  it("그 밖의 값은 거부한다", () => {
+    for (const step of ["general-0", "general-43", "general-01", "result", "", undefined, 1]) {
+      expect(() => parseStepBody({ step }), String(step)).toThrow(RequestValidationError);
+    }
+    expect(() => parseStepBody(null)).toThrow(RequestValidationError);
+  });
+});
