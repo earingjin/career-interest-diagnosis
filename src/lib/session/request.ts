@@ -1,5 +1,6 @@
 import "server-only";
 import { nicknameIsValid } from "../security/hash";
+import { STEP_ORDER } from "./progress";
 
 export class RequestValidationError extends Error {
   constructor(message: string) {
@@ -64,13 +65,8 @@ export function parseEnterBody(body: unknown): EnterInput {
   return { courseCode, nickname, phoneLast4 };
 }
 
-const GENERAL_STEPS = Array.from({ length: 42 }, (_, i) => `general-${i + 1}`);
-export const VALID_STEPS: ReadonlySet<string> = new Set([
-  ...GENERAL_STEPS,
-  "adjectives-intro",
-  "adjectives",
-  "review",
-]);
+// general-1~42, part1-done, adjectives-intro, adjectives, review
+export const VALID_STEPS: ReadonlySet<string> = new Set(STEP_ORDER);
 
 export function parseStepBody(body: unknown): string {
   const step = asRecord(body).step;
@@ -78,4 +74,38 @@ export function parseStepBody(body: unknown): string {
     throw new RequestValidationError("올바르지 않은 단계예요.");
   }
   return step;
+}
+
+/**
+ * 쿠키 세션이 지금 보고 있는 과정의 세션인지 확인할 수 있도록, 요청마다 과정 코드를 함께 보낸다.
+ * (쿠키가 곧 자격 증명이므로 보안 경계가 아니라, 다른 과정 화면에서의 오작동을 막는 용도다.)
+ */
+export function parseCourseCode(value: unknown): string {
+  if (typeof value !== "string" || !COURSE_CODE_PATTERN.test(value)) {
+    throw new RequestValidationError("과정 코드가 올바르지 않아요.");
+  }
+  return value;
+}
+
+export function parseCourseCodeField(body: unknown): string {
+  return parseCourseCode(asRecord(body).courseCode);
+}
+
+// DB 의 responses.item_id check 와 같은 규칙: g01~g42, a01~a30
+const ITEM_ID_PATTERN = /^(g(0[1-9]|[1-3][0-9]|4[0-2])|a(0[1-9]|[12][0-9]|30))$/;
+
+export type ResponseInput = { courseCode: string; itemId: string; value: boolean };
+
+export function parseResponseBody(body: unknown): ResponseInput {
+  const record = asRecord(body);
+  const courseCode = parseCourseCode(record.courseCode);
+
+  const itemId = record.itemId;
+  if (typeof itemId !== "string" || !ITEM_ID_PATTERN.test(itemId)) {
+    throw new RequestValidationError("문항 번호가 올바르지 않아요.");
+  }
+  if (typeof record.value !== "boolean") {
+    throw new RequestValidationError("응답 값이 올바르지 않아요.");
+  }
+  return { courseCode, itemId, value: record.value };
 }

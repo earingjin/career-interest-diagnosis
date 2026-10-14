@@ -2,7 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { RequestValidationError, isSameOriginRequest, parseEnterBody, parseStepBody } from "../request";
+import {
+  RequestValidationError,
+  isSameOriginRequest,
+  parseEnterBody,
+  parseResponseBody,
+  parseStepBody,
+} from "../request";
 
 const COURSE_CODE = "abcDEF0123456789_-xy";
 
@@ -110,5 +116,53 @@ describe("parseStepBody", () => {
       expect(() => parseStepBody({ step }), String(step)).toThrow(RequestValidationError);
     }
     expect(() => parseStepBody(null)).toThrow(RequestValidationError);
+  });
+});
+
+describe("parseStepBody (part1-done)", () => {
+  it("part1-done 을 허용한다", () => {
+    expect(parseStepBody({ step: "part1-done" })).toBe("part1-done");
+  });
+});
+
+describe("parseResponseBody", () => {
+  const body = (over: Record<string, unknown> = {}) => ({ courseCode: COURSE_CODE, itemId: "g01", value: true, ...over });
+
+  it("올바른 본문을 돌려준다", () => {
+    expect(parseResponseBody(body())).toEqual({ courseCode: COURSE_CODE, itemId: "g01", value: true });
+    expect(parseResponseBody(body({ itemId: "a30", value: false }))).toEqual({
+      courseCode: COURSE_CODE,
+      itemId: "a30",
+      value: false,
+    });
+  });
+
+  it("g01~g42, a01~a30 의 경계값을 허용한다", () => {
+    for (const itemId of ["g01", "g09", "g10", "g39", "g40", "g42", "a01", "a09", "a10", "a29", "a30"]) {
+      expect(parseResponseBody(body({ itemId })).itemId, itemId).toBe(itemId);
+    }
+  });
+
+  it("g00, g43, a00, a31, 형식이 다른 itemId 는 400 용 오류를 던진다", () => {
+    for (const itemId of ["g00", "g43", "a00", "a31", "g1", "G01", "x01", "g01 ", "", 1, null, undefined]) {
+      expect(() => parseResponseBody(body({ itemId })), String(itemId)).toThrow(RequestValidationError);
+    }
+  });
+
+  it("value 는 boolean 이어야 한다", () => {
+    for (const value of ["true", 1, 0, null, undefined]) {
+      expect(() => parseResponseBody(body({ value })), String(value)).toThrow(/응답 값/);
+    }
+  });
+
+  it("과정 코드가 없거나 올바르지 않으면 거부한다", () => {
+    expect(() => parseResponseBody(body({ courseCode: undefined }))).toThrow(/과정 코드/);
+    expect(() => parseResponseBody(body({ courseCode: "TEST01" }))).toThrow(/과정 코드/);
+  });
+
+  it("객체가 아닌 본문은 거부한다", () => {
+    for (const b of [undefined, null, "x", []]) {
+      expect(() => parseResponseBody(b)).toThrow(RequestValidationError);
+    }
   });
 });

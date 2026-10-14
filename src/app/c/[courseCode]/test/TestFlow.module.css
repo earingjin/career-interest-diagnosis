@@ -1,0 +1,235 @@
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 100vh;
+  min-height: 100dvh;
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1rem 1.25rem 1.5rem;
+}
+
+/* 저장 상태 영역: 문구가 나타나도 화면이 밀리지 않게 높이를 확보한다. */
+.status {
+  min-height: 2.25rem;
+  font-size: 1rem;
+}
+
+.warning {
+  padding: 0.5rem 0.75rem;
+  font-weight: 600;
+  color: #7a4b00;
+  background: #fff4d6;
+  border-radius: 0.5rem;
+}
+
+.saving {
+  color: #555555;
+}
+
+.lost {
+  padding: 0.5rem 0.75rem;
+  font-weight: 600;
+  color: #9b1c1c;
+  background: #fdecec;
+  border-radius: 0.5rem;
+}
+
+.lost a {
+  color: inherit;
+}
+
+/* fieldset 기본 테두리와 여백을 없애고, 비활성화 시 안의 버튼이 모두 막히게 한다. */
+.flow {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+  border: 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.counter {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.progress {
+  height: 0.75rem;
+  overflow: hidden;
+  background: #e4e4e7;
+  border-radius: 999px;
+}
+
+.progressFill {
+  height: 100%;
+  background: #1a56db;
+}
+
+.questionArea,
+.centerArea {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem 0;
+  text-align: center;
+}
+
+.question {
+  font-size: 1.45rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.body {
+  font-size: 1.1rem;
+}
+
+.hint {
+  min-height: 1.75rem;
+  font-size: 1rem;
+  color: #555555;
+}
+
+.adjectivesHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.answers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.answer,
+.primary,
+.secondary,
+.chip {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.answer {
+  min-height: 56px;
+  padding: 0 1rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #171717;
+  background: #ffffff;
+  border: 2px solid #767676;
+  border-radius: 0.5rem;
+}
+
+/* 선택 상태는 색뿐 아니라 굵은 글씨와 ✓ 표시로도 구분한다. */
+.selected {
+  font-weight: 800;
+  color: #ffffff;
+  background: #1a56db;
+  border-color: #1a56db;
+}
+
+.nextSlot {
+  display: flex;
+  flex-direction: column;
+  min-height: 56px;
+}
+
+.footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.primary {
+  min-height: 56px;
+  padding: 0 1rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: #1a56db;
+  border: 0;
+  border-radius: 0.5rem;
+}
+
+.secondary {
+  min-height: 56px;
+  padding: 0 1rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #171717;
+  background: #ffffff;
+  border: 2px solid #767676;
+  border-radius: 0.5rem;
+}
+
+.primary:disabled {
+  color: #4b4b4b;
+  background: #d4d4d8;
+  cursor: not-allowed;
+}
+
+.secondary:disabled {
+  color: #6b6b6b;
+  border-color: #c4c4c8;
+  cursor: not-allowed;
+}
+
+.chips {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: minmax(48px, auto);
+  align-content: start;
+  gap: 0.5rem;
+}
+
+.chip {
+  min-height: 48px;
+  padding: 0.25rem 0.4rem;
+  font-size: 1rem;
+  line-height: 1.35;
+  color: #171717;
+  background: #ffffff;
+  border: 2px solid #767676;
+  border-radius: 0.5rem;
+}
+
+.chipOn {
+  font-weight: 800;
+  color: #ffffff;
+  background: #1a56db;
+  border-color: #1a56db;
+}
+
+.answer:focus-visible,
+.primary:focus-visible,
+.secondary:focus-visible,
+.chip:focus-visible,
+.question:focus-visible,
+.title:focus-visible {
+  outline: 3px solid #1a56db;
+  outline-offset: 2px;
+}
+
+.selected:focus-visible,
+.chipOn:focus-visible {
+  outline-color: #171717;
+}
