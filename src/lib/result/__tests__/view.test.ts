@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import combinedInterpretations from "../../../content/combined-interpretations.json";
 import interpretations from "../../../content/interpretations.json";
 import { RIASEC_ORDER, type RiasecType } from "../../../content/types";
 import { buildResultView, ResultViewError, type ResultRow } from "../view";
@@ -38,6 +39,7 @@ const base = (result: ResultRow) => ({
   courseName: "테스트 과정",
   submittedAt: "2026-10-15T03:04:05.000Z",
   interpretations,
+  combinedInterpretations,
 });
 
 // S 10점, E 8점, C 3점
@@ -81,8 +83,14 @@ describe("buildResultView: 묶음과 라벨", () => {
 
   it("두 순위에 공통인 안내는 영역에 넣지 않고 결과 전체에 한 번만 담는다", () => {
     expect(view.commonNotes).toEqual(interpretations.commonNotes);
-    expect(view.commonNotes.join(" ")).toContain("검사에서 직접 측정한 결과가 아닙니다");
-    expect(view.commonNotes.join(" ")).toContain("취업 가능성이나 직무 적합성을 확정한 목록이 아닙니다");
+    // 점수 합산의 의미, 종합 해석의 성격, 흥미 ≠ 능력·자격·취업 가능성, 실제 업무·채용요건 확인
+    const notes = view.commonNotes.join(" ");
+    expect(view.commonNotes).toHaveLength(4);
+    for (const phrase of ["유형별 응답을 합산한 값", "별도의 조합검사 결과가 아닙니다", "능력·자격이나 취업 가능성을 확정하지 않습니다", "실제 업무와 채용요건"]) {
+      expect(notes, phrase).toContain(phrase);
+    }
+    // 점수에 등급이나 기준점을 붙이지 않는다.
+    expect(notes).not.toMatch(/등급|기준점|이상이면|이하이면|높음|낮음/);
     const json = JSON.stringify(view);
     for (const note of view.commonNotes) expect(json.split(JSON.stringify(note).slice(1, -1)).length - 1, note).toBe(1);
     for (const section of [view.top1, view.top2]) {
@@ -230,11 +238,58 @@ describe("buildResultView: 민감한 값", () => {
 
   it("최상위 키는 화면에 쓰는 값뿐이고 원본 results 행의 키가 없다", () => {
     expect(Object.keys(view).sort()).toEqual(
-      ["commonNotes", "courseName", "nickname", "scoringVersion", "submittedAt", "top1", "top2", "totals"].sort(),
+      ["combinedInterpretation", "commonNotes", "courseName", "nickname", "scoringVersion", "submittedAt", "top1", "top2", "totals"].sort(),
     );
     const json = JSON.stringify(view);
     for (const column of ["general_scores", "adjective_scores", "job_recommendations", "tie_broken"]) {
       expect(json, column).not.toContain(column);
     }
+  });
+});
+
+describe("buildResultView: 1·2순위 종합 해석", () => {
+  const combinationsOf = () =>
+    RIASEC_ORDER.flatMap((a) => RIASEC_ORDER.filter((b) => b !== a).map((b) => [a, b] as const));
+  /** a 가 1순위, b 가 2순위가 되도록 점수를 만든다. */
+  const rowFor = (a: RiasecType, b: RiasecType) => makeRow({ [a]: 7, [b]: 5 }, { [a]: 2, [b]: 1 }, a, b);
+
+  it("1순위+2순위 키(예: S·E → SE)의 세 문장만 그대로 담는다", () => {
+    const view = buildResultView(base(normalRow()));
+    expect(view.combinedInterpretation).toEqual(combinedInterpretations.combinations.SE);
+    expect(Object.keys(view.combinedInterpretation).sort()).toEqual(["explanation", "exploration", "summary"]);
+  });
+
+  it("1·2순위를 뒤집으면 다른 조합(ES) 문안을 고른다", () => {
+    const se = buildResultView(base(rowFor("S", "E"))).combinedInterpretation;
+    const es = buildResultView(base(rowFor("E", "S"))).combinedInterpretation;
+    expect(se).toEqual(combinedInterpretations.combinations.SE);
+    expect(es).toEqual(combinedInterpretations.combinations.ES);
+    expect(es).not.toEqual(se);
+  });
+
+  it("30개 조합을 모두 조회할 수 있고, 다른 29개 조합의 문장은 뷰에 담기지 않는다", () => {
+    const all = combinedInterpretations.combinations as Record<string, Record<string, string>>;
+    const keys = combinationsOf().map(([a, b]) => a + b);
+    expect(keys).toHaveLength(30);
+    for (const [a, b] of combinationsOf()) {
+      const view = buildResultView(base(rowFor(a, b)));
+      expect(view.combinedInterpretation, a + b).toEqual(all[a + b]);
+      const json = JSON.stringify(view);
+      for (const other of keys.filter((key) => key !== a + b)) {
+        for (const text of Object.values(all[other])) {
+          // 문장이 다른 조합과 우연히 같을 때는 비교에서 뺀다.
+          if (!Object.values(all[a + b]).includes(text)) expect(json, `${a + b} 에 ${other}`).not.toContain(text);
+        }
+      }
+    }
+  });
+
+  it("조합 문안이 없거나 비어 있으면 임의의 해설 대신 ResultViewError 로 거부한다", () => {
+    const missing = { combinations: { ...combinedInterpretations.combinations, SE: undefined } } as never;
+    expect(() => buildResultView({ ...base(normalRow()), combinedInterpretations: missing })).toThrow(/SE 조합/);
+    const blank = { combinations: { SE: { summary: " ", explanation: "a", exploration: "b" } } };
+    expect(() => buildResultView({ ...base(normalRow()), combinedInterpretations: blank })).toThrow(ResultViewError);
+    const inherited = { combinations: Object.create({ SE: combinedInterpretations.combinations.SE }) };
+    expect(() => buildResultView({ ...base(normalRow()), combinedInterpretations: inherited })).toThrow(ResultViewError);
   });
 });

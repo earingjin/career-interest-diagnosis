@@ -24,6 +24,23 @@ const interpretations = JSON.parse(await readFile(new URL("../src/content/interp
 const narrativeFields = ["interest", "workStyle", "preferredActivity", "workEnvironment", "burdensomeActivity", "careerUse", "careerExplore", "careerCheck"];
 const markersFor = (type) => narrativeFields.map((field) => interpretations.types[type][field]);
 const decodeUnicode = (text) => text.replace(/\\u([0-9a-f]{4})/gi, (_, code) => String.fromCharCode(parseInt(code, 16)));
+const combinedInterpretations = JSON.parse(await readFile(new URL("../src/content/combined-interpretations.json", import.meta.url), "utf8"));
+const combinedMarkers = (key) => Object.values(combinedInterpretations.combinations[key]);
+/** 제출 전에는 어떤 경로로도 브라우저에 가면 안 되는 결과 콘텐츠 전체 (유형 해설, 조합 해석 30개, 결과 안내문, 추천직업 원본). */
+const protectedMarkers = () => [
+  ...Object.keys(interpretations.types).flatMap((type) => markersFor(type).map((text) => [`${type} 해설`, text])),
+  ...Object.keys(combinedInterpretations.combinations).flatMap((key) => combinedMarkers(key).map((text) => [`${key} 종합 해석`, text])),
+  ...interpretations.commonNotes.map((text) => ["결과 안내문", text]),
+  // 추천직업 원본: 두 글자 직업명은 다른 글자와 우연히 겹칠 수 있어 목록 전체를 이은 문자열과 세 글자 이상 직업명으로 확인한다.
+  ...Object.entries(interpretations.types).flatMap(([type, t]) => [
+    [`${type} 추천직업 원본 목록`, JSON.stringify(t.seniorJobs)], [`${type} 추천직업 원본 목록`, JSON.stringify(t.generalJobs)],
+    ...[...t.seniorJobs, ...t.generalJobs].filter((job) => job.length >= 3).map((job) => [`${type} 추천직업`, job]),
+  ]),
+];
+function assertNoProtected(text, where) {
+  const decoded = decodeUnicode(text);
+  for (const [label, marker] of protectedMarkers()) assert.ok(!decoded.includes(marker), `${where}: ${label} 노출 (${marker.slice(0, 30)})`);
+}
 async function clientFiles(directory) {
   const files = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -52,19 +69,31 @@ try {
 
   const chunks = await clientFiles(".next/static/chunks");
   assert.ok(chunks.length > 0);
-  for (const chunk of chunks) {
-    const source = decodeUnicode(await readFile(chunk, "utf8"));
-    for (const type of Object.keys(interpretations.types)) {
-      for (const marker of markersFor(type)) assert.ok(!source.includes(marker), `${chunk}: ${type} interpretation leaked`);
+  for (const chunk of chunks) assertNoProtected(await readFile(chunk, "utf8"), chunk);
+  check(`production client bundle: ${chunks.length} JavaScript chunks contain no type narratives, 30 combined interpretations, result notes or job lists`);
+
+  // 1. 진단 시작 전 (쿠키 없음): 홈·입력 화면·결과 URL·세션 API
+  for (const route of ["/", entry, entry + "/test", entry + "/result", "/api/session", `/api/session/responses?courseCode=${code}`]) {
+    for (const headers of [{}, { RSC: "1" }]) {
+      const response = await context.request.get(base + route, { headers, maxRedirects: 0 });
+      assertNoProtected(await response.text(), `시작 전 ${route} ${headers.RSC ? "RSC" : "HTML"}`);
     }
   }
-  check(`production client bundle: ${chunks.length} JavaScript chunks contain no interpretation narratives`);
+  check("before start: home/entry/test/result HTML + RSC and session APIs expose no result content");
 
   async function layout(name) {
     // Streaming route refresh can briefly replace the previously visible screen with its fallback.
     await page.waitForLoadState("networkidle");
     if (name.startsWith("general-")) await page.getByRole("progressbar").waitFor();
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: horizontal overflow`);
+    await page.evaluate(() => document.fonts.ready);
+    const wrongFonts = await page.evaluate(() => [...document.querySelectorAll("body,button,input,select,textarea,svg text")].filter(e => e.getBoundingClientRect().height > 0 && !getComputedStyle(e).fontFamily.toLowerCase().includes("pretendard")).map(e => e.tagName));
+    assert.deepEqual(wrongFonts, [], `${name}: Pretendard inheritance`);
+    if (name.startsWith("result-") && page.viewportSize().width <= 480) {
+      const cards = await page.locator('section[aria-label="1순위와 2순위 요약"] > div').evaluateAll(es => es.map(e => { const r=e.getBoundingClientRect(); return {top:r.top,bottom:r.bottom}; }));
+      assert.equal(cards.length, 2);
+      assert(cards[1].top >= cards[0].bottom, `${name}: stacked rank cards`);
+    }
     await page.screenshot({ path: `${output}/${name}.png`, fullPage: true });
   }
   async function number(n) {
@@ -116,14 +145,32 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await enter();
   await number(1);
-  for (const route of [entry + "/test", entry + "/result"]) {
-    const response = await context.request.get(base + route);
-    const html = decodeUnicode(await response.text());
-    for (const type of Object.keys(interpretations.types)) {
-      for (const marker of markersFor(type)) assert.ok(!html.includes(marker), `${route}: pre-submission interpretation leaked`);
+  // 2·3. 진단 진행 중 + 미완료 상태에서 결과 URL 직접 접근 (HTML, RSC/Flight, 리다이렉트 따라간 응답, 세션 API)
+  for (const route of [entry + "/test", entry + "/result", entry, "/"]) {
+    for (const headers of [{}, { RSC: "1" }, { RSC: "1", "Next-Router-Prefetch": "1" }]) {
+      for (const maxRedirects of [0, 5]) {
+        const response = await context.request.get(base + route, { headers, maxRedirects });
+        assertNoProtected(await response.text(), `진행 중 ${route} ${JSON.stringify(headers)} redirects=${maxRedirects}`);
+      }
     }
   }
-  check("test HTML/RSC and result URL before submission expose no interpretation narratives");
+  for (const route of ["/api/session", `/api/session/responses?courseCode=${code}`]) {
+    const response = await context.request.get(base + route);
+    assert.equal(response.status(), 200, route);
+    assertNoProtected(await response.text(), `진행 중 API ${route}`);
+  }
+  // 브라우저가 실제로 받은 문서·스크립트·RSC 응답 전체도 확인한다 (프리패치 포함).
+  const seen = [];
+  const collect = async (response) => { try { seen.push([response.url(), await response.text()]); } catch { /* 본문 없음 */ } };
+  page.on("response", collect);
+  await page.goto(`${base}${entry}/result`);
+  await page.waitForURL(`**${entry}/test`);
+  await page.waitForLoadState("networkidle");
+  await number(1);
+  page.off("response", collect);
+  assert.ok(seen.length > 0);
+  for (const [url, body] of seen) assertNoProtected(body, `진행 중 브라우저 응답 ${url}`);
+  check(`in progress: test/result HTML, RSC, prefetch, redirects, session APIs and ${seen.length} browser responses expose no result content`);
   await page.getByRole("button", { name: "예", exact: true }).click();
   await number(2);
   // Cancel the automatic timer while it is waiting. The earlier response must remain.
@@ -252,6 +299,33 @@ try {
   }
   assert.doesNotMatch(await page.locator("body").innerText(), /중장년|장년|고령|시니어|노년|어르신/);
   check("submitted HTML/RSC delivers all four areas for top 1/2 only; shared notes once; no other type narratives");
+
+  // 4. 제출 후 본인 결과: 본인 1·2순위 조합의 종합 해석 1개만 전달하고 다른 29개 조합·추천직업 원본 목록은 보내지 않는다.
+  const ownKey = `${resultBefore.top1}${resultBefore.top2}`;
+  const resultRsc = decodeUnicode(await (await context.request.get(base + entry + "/result", { headers: { RSC: "1" } })).text());
+  for (const [where, body] of [["HTML", resultHtml], ["RSC", resultRsc]]) {
+    for (const text of combinedMarkers(ownKey)) assert.ok(body.includes(text), `${where}: 본인 조합(${ownKey}) 문장 누락`);
+    for (const key of Object.keys(combinedInterpretations.combinations).filter((k) => k !== ownKey)) {
+      for (const text of combinedMarkers(key)) {
+        if (!combinedMarkers(ownKey).includes(text)) assert.ok(!body.includes(text), `${where}: 다른 조합(${key}) 문장 전달됨`);
+      }
+    }
+    for (const t of Object.values(interpretations.types)) {
+      assert.ok(!body.includes(JSON.stringify(t.seniorJobs)) && !body.includes(JSON.stringify(t.generalJobs)), `${where}: 추천직업 원본 목록 전달됨`);
+    }
+  }
+  assert.equal(await page.getByRole("heading", { name: "나의 직업흥미 종합 해석", exact: true }).count(), 1);
+  for (const text of combinedMarkers(ownKey)) assert.equal(await page.getByText(text, { exact: true }).count(), 1, text);
+  // 5·6. 세션 쿠키가 없는 브라우저, 다른 고객의 브라우저에서 같은 결과 URL 접근
+  const stranger = await browser.newContext();
+  for (const headers of [{}, { RSC: "1" }]) {
+    for (const maxRedirects of [0, 5]) {
+      const response = await stranger.request.get(base + entry + "/result", { headers, maxRedirects });
+      assertNoProtected(await response.text(), `세션 없는 브라우저 /result ${JSON.stringify(headers)}`);
+    }
+  }
+  await stranger.close();
+  check(`submitted: own combination ${ownKey} only (HTML + RSC), other 29 combinations and raw job lists absent; no-session browser gets nothing`);
   for (const width of [360, 390, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await layout(`result-${width}`);
@@ -324,8 +398,13 @@ try {
   await number(1);
   assert.equal(await page.locator('button[aria-pressed="true"]').count(), 0);
   assert.equal(await page.getByRole("button", { name: "다음", exact: true }).count(), 0);
+  // 다른 고객이 같은 결과 URL 에 접근해도 앞 고객의 결과는 전달되지 않는다.
+  for (const headers of [{}, { RSC: "1" }]) {
+    const response = await context.request.get(base + entry + "/result", { headers, maxRedirects: 5 });
+    assertNoProtected(await response.text(), `다른 고객 /result ${JSON.stringify(headers)}`);
+  }
   await end();
-  check("another customer on the same device starts with no previous responses");
+  check("another customer on the same device starts with no previous responses and cannot receive the previous result");
 
   // Restore both legacy DB values and a legacy local queued step without changing schema.
   const legacyUser = "LegacyBeta";

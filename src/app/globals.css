@@ -5,19 +5,25 @@
 }
 
 html {
-  font-size: 18px;
+  font-size: 16px;
 }
 
 body {
   min-height: 100vh;
   color: #171717;
   background: #ffffff;
-  font-family: system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo",
-    "Malgun Gothic", "Noto Sans KR", sans-serif;
+  font-family: var(--font-pretendard), system-ui, sans-serif;
   font-size: 1rem;
   line-height: 1.6;
   word-break: keep-all;
   overflow-wrap: anywhere;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
 
 .page {

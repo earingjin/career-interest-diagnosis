@@ -10,7 +10,10 @@ import styles from "./detail.module.css";
 
 // A4 를 96dpi 로 환산한 크기(px). 좁은 화면에서는 미리보기를 이 비율로 줄여 보여준다.
 const A4_WIDTH_PX = 794;
-const A4_HEIGHT_PX = 1123;
+const SHEET_HEIGHT_PX = 1119; // 결과지 한 장(296mm)
+const PAGE_COUNT = 2;
+const PAGE_GAP_PX = 16; // result.module.css 의 .sheets gap 과 같다
+const PREVIEW_HEIGHT_PX = SHEET_HEIGHT_PX * PAGE_COUNT + PAGE_GAP_PX * (PAGE_COUNT - 1);
 const GUTTER_PX = 24;
 
 function subscribeResize(callback: () => void) {
@@ -27,8 +30,8 @@ type Props = {
 };
 
 /**
- * 관리자 PC 에서 보는 A4 결과지 미리보기와 인쇄 버튼.
- * 결과지는 고객 화면과 같은 ResultScreen(mode="print") 이며, 인쇄 규칙(@page, A4 210x296mm)도
+ * 관리자 PC 에서 보는 A4 결과지(두 장) 미리보기와 인쇄 버튼.
+ * 결과지는 고객 화면과 같은 ResultScreen(mode="print") 이며, 인쇄 규칙(@page, A4 210x296mm 두 장)도
  * 고객 결과 화면의 result.module.css 를 그대로 쓴다. 이 화면의 도구 줄만 인쇄에서 제외한다.
  */
 export function AdminResultSheet({ view, listHref }: Props) {
@@ -46,7 +49,7 @@ export function AdminResultSheet({ view, listHref }: Props) {
           ← 목록으로
         </Link>
         <p className={styles.title}>{view.nickname}님의 결과지 (A4 미리보기)</p>
-        <button type="button" className={adminStyles.button} onClick={() => window.print()}>
+        <button type="button" className={adminStyles.button} onClick={async () => { await document.fonts.ready; window.print(); }}>
           인쇄
         </button>
         <p className={styles.hint}>
@@ -58,9 +61,9 @@ export function AdminResultSheet({ view, listHref }: Props) {
         <div
           className={resultStyles.previewFrame}
           data-admin-sheet="true"
-          style={{ width: A4_WIDTH_PX * scale, height: A4_HEIGHT_PX * scale }}
+          style={{ width: A4_WIDTH_PX * scale, height: PREVIEW_HEIGHT_PX * scale }}
         >
-          <div className={resultStyles.previewScale} style={{ transform: `scale(${scale})` }}>
+          <div className={resultStyles.previewScale} style={{ height: PREVIEW_HEIGHT_PX, transform: `scale(${scale})` }}>
             <ResultScreen view={view} mode="print" />
           </div>
         </div>

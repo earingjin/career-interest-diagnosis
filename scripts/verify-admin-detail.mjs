@@ -25,6 +25,7 @@ const TYPES = ["R", "I", "A", "S", "E", "C"];
 const TYPE_NAME = { R: "현실형", I: "탐구형", A: "예술형", S: "사회형", E: "진취형", C: "관습형" };
 const interpretations = JSON.parse(readFileSync(new URL("../src/content/interpretations.json", import.meta.url), "utf8"));
 const questions = JSON.parse(readFileSync(new URL("../src/content/questions.json", import.meta.url), "utf8"));
+const combinedInterpretations = JSON.parse(readFileSync(new URL("../src/content/combined-interpretations.json", import.meta.url), "utf8"));
 
 const secret = randomBytes(48).toString("base64url");
 const password = randomBytes(24).toString("base64url");
@@ -62,7 +63,7 @@ const sheetText = (html) => {
   const text = textOf(html);
   const start = text.indexOf("직업선호도 검사 결과");
   const endMarker = "기관명 · 문의처 자리";
-  const end = text.indexOf(endMarker);
+  const end = text.lastIndexOf(endMarker); // 두 장 모두 하단 문구가 있으므로 마지막 장까지 자른다
   assert(start >= 0 && end > start, "A4 결과지 영역을 찾지 못함");
   return text.slice(start, end + endMarker.length);
 };
@@ -133,40 +134,52 @@ async function cdpSession(chromePath, profileDir) {
 
 // Chrome 안에서 실행해 결과지가 잘리거나 겹치는지 측정한다 (결과를 JSON 으로 돌려준다).
 const MEASURE = `(() => {
-  const sheet = document.querySelector('[data-print-sheet]');
-  if (!sheet) return { error: '결과지를 찾지 못함' };
-  const s = sheet.getBoundingClientRect();
+  const root = document.querySelector('[data-print-sheet]');
+  if (!root) return { error: '결과지를 찾지 못함' };
+  const pages = [...root.querySelectorAll('[data-print-page]')];
+  if (pages.length !== 2) return { error: '결과지 장 수가 2가 아님: ' + pages.length };
   const problems = [];
   const eps = 0.75;
   let minFont = Infinity;
-  for (const el of sheet.querySelectorAll('*')) {
-    const r = el.getBoundingClientRect();
-    if (r.width === 0 && r.height === 0) continue;
-    if (r.bottom > s.bottom + eps) problems.push('아래로 넘침: ' + el.tagName + ' ' + (el.textContent || '').slice(0, 20));
-    if (r.right > s.right + eps) problems.push('오른쪽으로 넘침: ' + el.tagName + ' ' + (el.textContent || '').slice(0, 20));
-    if (r.left < s.left - eps) problems.push('왼쪽으로 넘침: ' + el.tagName);
-    if (!(el instanceof SVGElement) && el.childNodes.length && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) {
-      minFont = Math.min(minFont, parseFloat(getComputedStyle(el).fontSize));
+  const sizes = [];
+  const spares = [];
+  pages.forEach((page, index) => {
+    const label = (index + 1) + '페이지 ';
+    const s = page.getBoundingClientRect();
+    sizes.push({ width: s.width, height: s.height });
+    for (const el of page.querySelectorAll('*')) {
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 && r.height === 0) continue;
+      if (r.bottom > s.bottom + eps) problems.push(label + '아래로 넘침: ' + el.tagName + ' ' + (el.textContent || '').slice(0, 20));
+      if (r.right > s.right + eps) problems.push(label + '오른쪽으로 넘침: ' + el.tagName + ' ' + (el.textContent || '').slice(0, 20));
+      if (r.left < s.left - eps) problems.push(label + '왼쪽으로 넘침: ' + el.tagName);
+      if (!(el instanceof SVGElement) && el.childNodes.length && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) {
+        minFont = Math.min(minFont, parseFloat(getComputedStyle(el).fontSize));
+      }
     }
-  }
-  const [header, columns, scores, notes, footer] = sheet.children;
-  if (!notes || !footer) return { error: '공통 안내 또는 하단 문구를 찾지 못함' };
-  if (scores.getBoundingClientRect().bottom > notes.getBoundingClientRect().top + eps) problems.push('점수표와 공통 안내가 겹침');
-  if (notes.getBoundingClientRect().bottom > footer.getBoundingClientRect().top + eps) problems.push('공통 안내와 하단 문구가 겹침');
-  const colEls = [...columns.children];
-  let columnsBottom = 0;
-  for (const col of colEls) for (const el of col.querySelectorAll('*')) columnsBottom = Math.max(columnsBottom, el.getBoundingClientRect().bottom);
-  const scoresTop = scores.getBoundingClientRect().top;
-  if (columnsBottom > scoresTop + eps) problems.push('두 열의 내용이 점수표와 겹침');
-  for (const col of colEls) if (col.scrollHeight > col.clientHeight + 1) problems.push('열 내용이 칸보다 김');
-  if (sheet.scrollHeight > sheet.clientHeight + 1) problems.push('결과지 내용이 결과지보다 김');
-  const headerBottom = header.getBoundingClientRect().bottom;
-  if (columns.getBoundingClientRect().top < headerBottom - eps) problems.push('헤더와 본문이 겹침');
+    if (page.scrollHeight > page.clientHeight + 1) problems.push(label + '내용이 결과지보다 김');
+    const children = [...page.children];
+    for (let i = 1; i < children.length; i++) {
+      if (children[i - 1].getBoundingClientRect().bottom > children[i].getBoundingClientRect().top + eps) {
+        problems.push(label + '영역이 겹침: ' + (children[i - 1].getAttribute('aria-label') || children[i - 1].tagName) + ' / ' + (children[i].getAttribute('aria-label') || children[i].tagName));
+      }
+    }
+    // 여유 공간: 1페이지는 하단 안내 위, 2페이지는 바닥글 위. 글자가 있는 가장 아래 요소까지의 거리에서 영역 간격을 뺀다.
+    const footer = page.querySelector('footer');
+    if (!footer) { problems.push(label + '바닥글 없음'); return; }
+    const limit = page.querySelector('[aria-label="결과를 볼 때 알아 두세요"]') || footer;
+    let contentBottom = 0;
+    for (const el of page.querySelectorAll('*')) {
+      if (limit.contains(el) || footer.contains(el) || (el instanceof SVGElement && !(el instanceof SVGSVGElement))) continue;
+      if (el.children.length === 0 || el instanceof SVGSVGElement) contentBottom = Math.max(contentBottom, el.getBoundingClientRect().bottom);
+    }
+    const gap = parseFloat(getComputedStyle(page).rowGap) || 0;
+    spares.push(Math.round((limit.getBoundingClientRect().top - gap - contentBottom) * 10) / 10);
+  });
   const toolbar = document.querySelector('[data-admin-chrome]');
   return {
-    width: s.width, height: s.height, minFont, problems,
-    spare: Math.round((scoresTop - columnsBottom) * 10) / 10,
-    footerBottomGap: Math.round((s.bottom - footer.getBoundingClientRect().bottom) * 10) / 10,
+    width: sizes[0].width, height: sizes[0].height, sizes, minFont, problems, spares,
+    spare: Math.min(...spares),
     toolbarDisplay: toolbar ? getComputedStyle(toolbar).display : 'none-element',
     bodyScrollHeight: document.documentElement.scrollHeight,
   };
@@ -307,9 +320,22 @@ try {
       expected.push(section.keywords.join(" · "));
     }
     expected.push("경력 활용과 진로 탐색", "추천직업과 확인사항");
+    // 이 고객의 1·2순위 조합 종합 해석 세 문장
+    const ownKey = `${result.top1}${result.top2}`;
+    expected.push("나의 직업흥미 종합 해석", ...Object.values(combinedInterpretations.combinations[ownKey]));
     for (const text of expected) {
       assert(customerText.includes(text), "고객 결과 내용 누락: " + text);
       assert(adminSheet.includes(text), "관리자 결과 내용 누락: " + text);
+    }
+    // 다른 29개 조합의 문장은 고객 응답(HTML·RSC 포함)과 관리자 응답 어디에도 없어야 한다.
+    const ownTexts = new Set(Object.values(combinedInterpretations.combinations[ownKey]));
+    for (const [key, entry] of Object.entries(combinedInterpretations.combinations)) {
+      if (key === ownKey) continue;
+      for (const text of Object.values(entry)) {
+        if (ownTexts.has(text)) continue;
+        assert(!customerHtml.includes(text), `고객 응답에 다른 조합(${key}) 문안 포함`);
+        assert(!adminHtml.includes(text), `관리자 응답에 다른 조합(${key}) 문안 포함`);
+      }
     }
     // 1·2순위 공통 안내는 고객 화면과 관리자 결과지 모두 정확히 한 번
     for (const note of interpretations.commonNotes) {
@@ -351,46 +377,57 @@ try {
         if (await evaluate("!!document.querySelector('[data-print-sheet]')").catch(() => false)) break;
         await delay(150);
       }
+      await evaluate("document.fonts.ready.then(() => true)");
       await delay(250);
     };
     const evidenceDirectory = "scratch/interpretations-admin";
     mkdirSync(evidenceDirectory, { recursive: true });
     const pdfPages = async (file) => {
+      await evaluate("document.fonts.ready.then(() => true)");
       const { data } = await send("Page.printToPDF", { preferCSSPageSize: true, printBackground: true });
+      const pdf = Buffer.from(data, "base64").toString("latin1");
       if (file) writeFileSync(`${evidenceDirectory}/${file}`, Buffer.from(data, "base64"));
+      assert(pdf.includes("Pretendard"), "PDF must include Pretendard");
+      assert(/\/FontFile[23]?\b/.test(pdf) || (/\/Subtype \/Type3\b/.test(pdf) && pdf.includes("/CharProcs")), "PDF must embed font data or Type3 glyph programs");
       return (Buffer.from(data, "base64").toString("latin1").match(/\/Type\s*\/Page[^s]/g) ?? []).length;
     };
 
-    await check("4-1. 화면 미리보기: 결과지 표시, 도구 줄(목록·인쇄 버튼) 표시, 결과지 안에는 버튼 없음", async () => {
+    await check("4-1. 화면 미리보기: 결과지 두 장 표시, 도구 줄(목록·인쇄 버튼) 표시, 결과지 안에는 버튼 없음", async () => {
       await go(`/admin/results/${printIds.SE}`);
       await send("Emulation.setEmulatedMedia", { media: "screen" });
       const info = await evaluate(`(() => {
-        const sheet = document.querySelector('[data-print-sheet]').getBoundingClientRect();
+        const pages = [...document.querySelectorAll('[data-print-page]')].map((p) => p.getBoundingClientRect());
+        const frame = document.querySelector('[data-admin-sheet]').getBoundingClientRect();
         const tb = document.querySelector('[data-admin-chrome]');
         const button = [...tb.querySelectorAll('button')].find((b) => b.textContent.trim() === '인쇄');
-        return { w: sheet.width, h: sheet.height, tb: getComputedStyle(tb).display, hasButton: !!button,
+        return { pages: pages.map((r) => ({ w: r.width, h: r.height, bottom: r.bottom })), frameBottom: frame.bottom,
+          gap: pages[1] ? pages[1].top - pages[0].bottom : -1, tb: getComputedStyle(tb).display, hasButton: !!button,
           btnInSheet: document.querySelector('[data-print-sheet]').querySelectorAll('button,a,input').length };
       })()`);
-      assert(Math.abs(info.w - 793.7) < 1.5 && Math.abs(info.h - 1118.5) < 1.5, `결과지 크기 ${info.w}x${info.h}`);
+      assert.equal(info.pages.length, 2, "미리보기 장 수");
+      for (const page of info.pages) assert(Math.abs(page.w - 793.7) < 1.5 && Math.abs(page.h - 1118.5) < 1.5, `결과지 크기 ${page.w}x${page.h}`);
+      assert(info.gap > 0, "미리보기에서 두 장의 경계가 보이지 않음");
+      assert(info.pages[1].bottom <= info.frameBottom + 1, "미리보기 틀이 2페이지를 자름");
       assert.notEqual(info.tb, "none"); assert(info.hasButton); assert.equal(info.btnInSheet, 0);
       const screenshot = await send("Page.captureScreenshot", { captureBeyondViewport: true });
       writeFileSync(`${evidenceDirectory}/preview.png`, Buffer.from(screenshot.data, "base64"));
-      return `결과지 ${Math.round(info.w)}x${Math.round(info.h)}px (210x296mm)`;
+      return `결과지 2장 각 ${Math.round(info.pages[0].w)}x${Math.round(info.pages[0].h)}px (210x296mm), 장 사이 ${Math.round(info.gap)}px`;
     });
 
-    await check("4-2. 인쇄 미디어: 도구 줄 숨김, 결과지 210x296mm, PDF 한 장", async () => {
+    await check("4-2. 인쇄 미디어: 도구 줄 숨김, 결과지 210x296mm 두 장, PDF 두 쪽", async () => {
       await go(`/admin/results/${printIds.SE}`);
       await send("Emulation.setEmulatedMedia", { media: "print" });
       await delay(200);
       const m = await evaluate(MEASURE);
+      assert(!m.error, m.error);
       assert.equal(m.toolbarDisplay, "none", "인쇄 때 도구 줄이 보임");
-      assert(Math.abs(m.width - 793.7) < 1.5 && Math.abs(m.height - 1118.5) < 1.5, `인쇄 결과지 크기 ${m.width}x${m.height}`);
-      assert.equal(await pdfPages("result.pdf"), 1, "PDF 가 한 장이 아님");
-      return "도구 줄 display:none, 결과지 794x1118px, PDF 1장";
+      for (const size of m.sizes) assert(Math.abs(size.width - 793.7) < 1.5 && Math.abs(size.height - 1118.5) < 1.5, `인쇄 결과지 크기 ${size.width}x${size.height}`);
+      assert.equal(await pdfPages("result.pdf"), 2, "PDF 가 두 쪽이 아님");
+      return "도구 줄 display:none, 결과지 2장 794x1118px, PDF 2쪽";
     });
 
     const worst = [];
-    await check("4-3. 1·2순위 30가지 조합 모두 인쇄 시 잘림·겹침·글자 크기(10pt) 이상 없음, PDF 한 장", async () => {
+    await check("4-3. 1·2순위 30가지 조합 모두 인쇄 시 잘림·겹침·글자 크기(10pt) 이상 없음, PDF 두 쪽", async () => {
       const bad = [];
       for (const [t1, t2] of pairs) {
         await go(`/admin/results/${printIds[`${t1}${t2}`]}`);
@@ -398,18 +435,18 @@ try {
         await delay(150);
         const m = await evaluate(MEASURE);
         const pages = await pdfPages();
-        worst.push({ pair: `${t1}${t2}`, spare: m.spare, footer: m.footerBottomGap, minFont: m.minFont });
+        worst.push({ pair: `${t1}${t2}`, spare: m.spare, spares: m.spares, minFont: m.minFont });
         const problems = [...(m.problems ?? []), ...(m.error ? [m.error] : [])];
         if (m.toolbarDisplay !== "none") problems.push("도구 줄이 인쇄에 보임");
-        if (pages !== 1) problems.push(`PDF ${pages}장`);
+        if (pages !== 2) problems.push(`PDF ${pages}쪽`);
         if (m.minFont < 13.3) problems.push(`글자 크기 ${m.minFont}px (10pt=13.3px 미만)`);
-        if (m.spare < 8) problems.push(`본문과 점수표 안전 여백 부족: ${m.spare}px`);
+        if (m.spare < 8) problems.push(`안전 여백 부족: 페이지별 ${JSON.stringify(m.spares)}px`);
         if (problems.length) bad.push(`${t1}${t2}: ${[...new Set(problems)].slice(0, 3).join(", ")}`);
       }
       writeFileSync(`${evidenceDirectory}/layout-checks.json`, JSON.stringify({ measurements: worst, failures: bad }, null, 2));
       assert.equal(bad.length, 0, bad.slice(0, 5).join(" | "));
       const tightest = worst.reduce((a, b) => (b.spare < a.spare ? b : a));
-      return `30개 조합 이상 없음. 가장 빠듯한 조합 ${tightest.pair}: 본문~점수표 여백 ${tightest.spare}px`;
+      return `30개 조합 이상 없음. 가장 빠듯한 조합 ${tightest.pair}: 여백(1·2페이지) ${tightest.spares.join("·")}px, 최소 글자 ${Math.min(...worst.map((w) => w.minFont)).toFixed(1)}px`;
     });
   }
 
@@ -421,15 +458,27 @@ try {
     await check("4-4. 측정기 자체 점검: 일부러 긴 문장을 넣으면 잘림·겹침을 감지한다", async () => {
       const { send, evaluate } = chromeSession;
       await send("Emulation.setEmulatedMedia", { media: "print" });
-      await evaluate(`(() => {
-        const col = document.querySelector('[data-print-sheet]').children[1].children[0];
-        const p = document.createElement('p');
-        p.textContent = '긴 문장 '.repeat(400);
-        col.appendChild(p);
-      })()`);
-      const m = await evaluate(MEASURE);
-      assert(m.problems.length > 0, "넘치는 내용을 넣었는데도 측정기가 문제를 찾지 못함 (측정이 믿을 수 없음)");
-      return `감지됨: ${m.problems.slice(0, 2).join(", ")}`;
+      // 두 장 각각에 넘치는 문장을 넣어 측정기가 장별로 잡아내는지 확인한다.
+      const found = [];
+      for (const [page, selector] of [["1", '[aria-label="나의 직업흥미 종합 해석"]'], ["2", ":scope > div > div"]]) {
+        await send("Page.navigate", { url: `${BASE}/admin/results/${ctx.same1}` });
+        await delay(1000); // 이전 문서에 넣지 않도록 새 문서가 열릴 때까지 기다린다
+        for (let i = 0; i < 80; i++) {
+          if (await evaluate("document.querySelectorAll('[data-print-page]').length === 2").catch(() => false)) break;
+          await delay(150);
+        }
+        await send("Emulation.setEmulatedMedia", { media: "print" });
+        await evaluate(`(() => {
+          const target = document.querySelector('[data-print-page="${page}"]').querySelector('${selector}');
+          const p = document.createElement('p');
+          p.textContent = '긴 문장 '.repeat(400);
+          target.appendChild(p);
+        })()`);
+        const m = await evaluate(MEASURE);
+        assert(m.problems.some((problem) => problem.startsWith(`${page}페이지`)), `${page}페이지에 넘치는 내용을 넣었는데도 측정기가 찾지 못함 (측정이 믿을 수 없음)`);
+        found.push(m.problems.find((problem) => problem.startsWith(`${page}페이지`)));
+      }
+      return `감지됨: ${found.join(", ").slice(0, 160)}`;
     });
   }
 

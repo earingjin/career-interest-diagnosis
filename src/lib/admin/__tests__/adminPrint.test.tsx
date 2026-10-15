@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import combinedInterpretations from "../../../content/combined-interpretations.json";
 import interpretations from "../../../content/interpretations.json";
 import { buildResultView } from "../../result/view";
 
@@ -33,6 +34,7 @@ const view = buildResultView({
   courseName: "테스트 과정",
   submittedAt: "2026-10-14T03:00:00.000Z",
   interpretations,
+  combinedInterpretations,
 });
 
 const html = renderToStaticMarkup(<AdminResultSheet view={view} listHref="/admin/results?date=2026-10-14" />);
@@ -102,6 +104,12 @@ describe("관리자 상세 화면: 공유 A4 결과지 유지", () => {
     expect(printBlock).toMatch(/\.previewFrame\s*{[^}]*width:\s*210mm\s*!important/);
   });
 
+  it("인쇄 때 1페이지 뒤에서만 페이지를 나눈다", () => {
+    const printBlock = resultCss.slice(resultCss.lastIndexOf("@media print"));
+    expect(printBlock).toMatch(/\.sheet\s*{[^}]*break-after:\s*page/);
+    expect(printBlock).toMatch(/\.sheet:last-child\s*{[^}]*break-after:\s*avoid/);
+  });
+
   it("결과지는 기존 공유 컴포넌트(mode=print)와 동일한 내용이다", () => {
     const sharedPrint = renderToStaticMarkup(<ResultScreen view={view} mode="print" />);
     expect(html).toContain(sharedPrint);
@@ -119,13 +127,16 @@ describe("모바일·A4 결과: 같은 해설과 공통 안내", () => {
   const print = renderToStaticMarkup(<ResultScreen view={view} mode="print" />);
   const escaped = (text: string) => renderToStaticMarkup(<>{text}</>);
   const count = (markup: string, text: string) => markup.split(`>${escaped(text)}<`).length - 1;
+  // 유형 이름은 그래프·점수표·2페이지 머리말에도 나오므로 횟수 비교에서 뺀다.
   const sectionTexts = [view.top1, view.top2].flatMap((section) => [
-    section.nameKo, section.nameEn, section.keywords, ...section.jobs,
+    section.keywords, ...section.jobs,
     ...section.groups.flatMap((group) => [group.title, ...group.items.flatMap((item) => [item.label, item.text])]),
   ]);
 
-  it("유형 해설·키워드·추천직업·확인사항이 두 화면에 같은 횟수로 나온다", () => {
-    for (const text of sectionTexts) {
+  const combinedTexts = Object.values(view.combinedInterpretation);
+
+  it("유형 해설·키워드·추천직업·확인사항·종합 해석이 두 화면에 같은 횟수로 나온다", () => {
+    for (const text of [...sectionTexts, ...combinedTexts, "나의 직업흥미 종합 해석", "핵심 요약", "종합 설명", "탐색 제안"]) {
       expect(count(mobile, text), text).toBeGreaterThan(0);
       expect(count(print, text), text).toBe(count(mobile, text));
     }
@@ -186,5 +197,62 @@ describe("고객 결과: 전체 웹 결과만 제공", () => {
     expect(customerHtml).toContain("홈으로");
     expect(customerHtml).toContain("이용 종료");
     expect(customerHtml).not.toMatch(/PDF|인쇄|A4|미리보기|@page|data-print-sheet|data-preview|download=/);
+  });
+});
+
+describe("A4 두 장: 페이지별 내용", () => {
+  const print = renderToStaticMarkup(<ResultScreen view={view} mode="print" />);
+  const escaped = (text: string) => renderToStaticMarkup(<>{text}</>);
+  const [, page1 = "", page2 = ""] = print.split(/data-print-page="\d"/);
+  const combinedTexts = Object.values(view.combinedInterpretation);
+
+  it("정확히 두 장이고 각 장에 제목과 쪽 번호, 기관명·문의처가 있다", () => {
+    expect((print.match(/data-print-page=/g) ?? []).length).toBe(2);
+    expect(page1).toContain("나의 직업흥미 결과");
+    expect(page1).toContain("직업선호도 검사 결과");
+    expect(page2).toContain("나의 직업흥미 상세 해설");
+    expect(page1).toContain(">1 / 2<");
+    expect(page2).toContain(">2 / 2<");
+    for (const page of [page1, page2]) expect(page).toContain("기관명 · 문의처 자리");
+  });
+
+  it("1페이지: 기본정보·그래프·1·2순위 점수·종합 해석·점수표·안내 순서", () => {
+    const order = [
+      "닉네임: 홍길동", "<svg", 'aria-label="1순위와 2순위 요약"', "나의 직업흥미 종합 해석",
+      'aria-label="전체 점수표"', "결과를 볼 때 알아 두세요", "기관명 · 문의처 자리",
+    ].map((marker) => page1.indexOf(marker));
+    expect(order.every((index) => index >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    const ranks = page1.slice(page1.indexOf('aria-label="1순위와 2순위 요약"'), page1.indexOf("나의 직업흥미 종합 해석"));
+    expect(ranks).toContain(">7점<");
+    expect(ranks).toContain(">6점<");
+    for (const text of [...combinedTexts, ...view.commonNotes]) expect(page1, text).toContain(escaped(text));
+    expect(page1).not.toContain("나의 직업흥미 특성");
+  });
+
+  it("2페이지: 1·2순위 좌우 상세 해설만 있고 종합 해석·공통 안내를 반복하지 않는다", () => {
+    for (const section of [view.top1, view.top2]) {
+      for (const text of [section.keywords, ...section.jobs, ...section.groups.flatMap((g) => [g.title, ...g.items.map((i) => i.text)])]) {
+        expect(page2, text).toContain(escaped(text));
+      }
+    }
+    expect(page2.indexOf(escaped(view.top1.keywords))).toBeLessThan(page2.indexOf(escaped(view.top2.keywords)));
+    for (const text of [...combinedTexts, ...view.commonNotes, "나의 직업흥미 종합 해석", "결과를 볼 때 알아 두세요"]) {
+      expect(page2, text).not.toContain(escaped(text));
+    }
+  });
+});
+
+describe("모바일 결과: 세로 배치 순서", () => {
+  const mobile = renderToStaticMarkup(<ResultScreen view={view} mode="mobile" />);
+
+  it("기본정보 → 그래프 → 1·2순위 요약 → 종합 해석 → 점수표 → 안내 → 1순위 → 2순위 상세 해설", () => {
+    const order = [
+      "홍길동님의 검사 결과", "유형별 점수 그래프", 'aria-label="1순위와 2순위 요약"', "나의 직업흥미 종합 해석",
+      "전체 점수표", "결과를 볼 때 알아 두세요", 'aria-label="1순위 상세 해설"', 'aria-label="2순위 상세 해설"',
+    ].map((marker) => mobile.indexOf(marker));
+    expect(order.every((index) => index >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(mobile).not.toContain("data-print-page");
   });
 });

@@ -1,4 +1,5 @@
 import "server-only";
+import combinedInterpretations from "../../content/combined-interpretations.server";
 import interpretations from "../../content/interpretations.server";
 import type { Db } from "../session/db";
 import { buildResultView, ResultViewError, type ResultView } from "./view";
@@ -59,6 +60,7 @@ export async function loadSessionResult(db: Db, sessionId: string): Promise<Sess
         courseName: one(row.courses)?.name ?? "과정 정보 없음",
         submittedAt: new Date(row.submitted_at).toISOString(),
         interpretations,
+        combinedInterpretations,
       }),
     };
   } catch (error) {

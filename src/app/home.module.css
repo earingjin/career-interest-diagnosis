@@ -1,4 +1,4 @@
-/* 고객용 메인 화면: 차분한 네이비·블루·화이트, 모바일 우선. 모든 글자는 18px(1rem) 이상이다. */
+/* 고객용 메인 화면: 차분한 네이비·블루·화이트, 모바일 우선. 모든 글자는 16px(1rem) 이상이다. */
 
 .home {
   --navy: #0b2a5b;
@@ -35,7 +35,7 @@
 }
 
 .title {
-  font-size: 1.7rem;
+  font-size: 1.5rem;
   font-weight: 800;
   line-height: 1.35;
 }
@@ -43,7 +43,7 @@
 .lead {
   max-width: 34rem;
   margin-top: 1rem;
-  font-size: 1.1rem;
+  font-size: 1rem;
   color: #e6eeff;
 }
 
@@ -68,7 +68,7 @@
   max-width: 26rem;
   min-height: 64px;
   padding: 0 1.5rem;
-  font-size: 1.25rem;
+  font-size: 1rem;
   font-weight: 800;
   line-height: 1.3;
   text-align: center;
@@ -102,7 +102,7 @@
 }
 
 .arrow {
-  font-size: 1.4rem;
+  font-size: 1.125rem;
 }
 
 /* ===== 시작할 수 없을 때의 안내와 로딩 ===== */
@@ -116,7 +116,7 @@
 
 .noticeTitle {
   margin-bottom: 0.25rem;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 800;
 }
 
@@ -140,7 +140,7 @@
 
 .heading {
   margin-bottom: 1.25rem;
-  font-size: 1.4rem;
+  font-size: 1.125rem;
   font-weight: 800;
   line-height: 1.4;
   color: var(--navy);

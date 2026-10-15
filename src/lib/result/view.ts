@@ -26,6 +26,20 @@ export type InterpretationsFile = {
   types: Record<string, Omit<TypeInterpretation, "type"> & { type: string }>;
 };
 
+export type CombinedInterpretation = {
+  /** 1순위 중심의 핵심 흥미 */
+  summary: string;
+  /** 1순위와 2순위 흥미의 연결 */
+  explanation: string;
+  /** 관심 있게 살펴볼 구체적인 활동 */
+  exploration: string;
+};
+
+/** 키는 1순위 + 2순위 순서 (예: top1=C, top2=I → "CI"). */
+export type CombinedInterpretationsFile = {
+  combinations: Record<string, CombinedInterpretation>;
+};
+
 export type ResultGroup = {
   id: "interest" | "activity" | "career" | "jobs";
   title: string;
@@ -59,6 +73,8 @@ export type ResultView = {
   top1: ResultTypeSection;
   top2: ResultTypeSection;
   totals: ResultTotalRow[];
+  /** 이 결과의 1·2순위 조합 하나에 대한 종합 해석. 다른 조합의 문안은 담지 않는다. */
+  combinedInterpretation: CombinedInterpretation;
   /** 1·2순위에 공통으로 적용되는 안내. 결과 전체에 한 번만 표시한다. */
   commonNotes: string[];
 };
@@ -69,6 +85,7 @@ export type BuildResultViewInput = {
   courseName: string;
   submittedAt: string;
   interpretations: InterpretationsFile;
+  combinedInterpretations: CombinedInterpretationsFile;
 };
 
 // 화면과 관리자 출력에 같은 값을 전달한다. 두 순위에 공통인 안내는 영역에 넣지 않고 commonNotes 로 한 번만 전달한다.
@@ -147,6 +164,19 @@ function buildSection(
   };
 }
 
+/** 1·2순위 조합의 종합 해석 세 문장만 꺼낸다. 없거나 비어 있으면 임의의 문안 대신 오류로 처리한다. */
+function readCombined(top1: RiasecType, top2: RiasecType, file: CombinedInterpretationsFile): CombinedInterpretation {
+  const key = `${top1}${top2}`;
+  const entry: Partial<CombinedInterpretation> | undefined = Object.hasOwn(file.combinations, key) ? file.combinations[key] : undefined;
+  const { summary, explanation, exploration } = entry ?? {};
+  for (const text of [summary, explanation, exploration]) {
+    if (typeof text !== "string" || text.trim() === "") {
+      throw new ResultViewError(`${key} 조합의 종합 해석이 없거나 비어 있습니다.`);
+    }
+  }
+  return { summary: summary!, explanation: explanation!, exploration: exploration! };
+}
+
 /**
  * 저장된 results 행으로 결과 화면용 뷰 모델을 만든다.
  * 1·2순위는 저장된 값을 그대로 쓰되, 점수와 맞는지(동점이면 RIASEC 순서) 검증만 한다.
@@ -157,6 +187,7 @@ export function buildResultView({
   courseName,
   submittedAt,
   interpretations,
+  combinedInterpretations,
 }: BuildResultViewInput): ResultView {
   if (!isRiasecType(result.top1) || !isRiasecType(result.top2) || result.top1 === result.top2) {
     throw new ResultViewError("1순위와 2순위 유형이 올바르지 않습니다.");
@@ -193,6 +224,7 @@ export function buildResultView({
       adjective: adjective[type],
       emphasized: type === top1 || type === top2,
     })),
+    combinedInterpretation: readCombined(top1, top2, combinedInterpretations),
     commonNotes: [...interpretations.commonNotes],
   };
 }
