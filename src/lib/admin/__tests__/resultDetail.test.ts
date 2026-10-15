@@ -261,11 +261,13 @@ describe("고객 화면과 관리자 화면의 결과 일치", () => {
       }),
     ];
     state.customerSession = { id: uuid(1), status: "submitted" };
-
+    const storedBefore = structuredClone(sessions);
     const customer = await loadResult("abcDEF0123456789_-xy");
     const admin = await loadAdminResultDetail(uuid(1));
     if (customer.kind !== "ok" || admin.kind !== "ok") throw new Error("조회 실패");
     expect(admin.view).toEqual(customer.view);
+    expect(sessions).toEqual(storedBefore);
+    expect(customer.view.scoringVersion).toBe("1.0.0");
     expect(customer.view.totals.find((t) => t.type === "A")).toMatchObject({ total: 10, general: 7, adjective: 3 });
   });
 

@@ -30,8 +30,9 @@ function GroupList({ section }: { section: ResultTypeSection }) {
   return (
     <div className={styles.groups}>
       {section.groups.map((group) => (
-        <section key={group.title} className={styles.group}>
+        <section key={group.id} className={styles.group}>
           <h3 className={styles.groupTitle}>{group.title}</h3>
+          {group.id === "jobs" && <JobList section={section} />}
           <dl className={styles.rows}>
             {group.items.map((item) => (
               <div key={item.label} className={styles.row}>
@@ -48,14 +49,11 @@ function GroupList({ section }: { section: ResultTypeSection }) {
 
 function JobList({ section }: { section: ResultTypeSection }) {
   return (
-    <section className={styles.jobs}>
-      <h3 className={styles.groupTitle}>추천직업</h3>
-      <ol className={styles.jobList}>
-        {section.jobs.map((job) => (
-          <li key={job}>{job}</li>
-        ))}
-      </ol>
-    </section>
+    <ol className={styles.jobList} aria-label="추천직업">
+      {section.jobs.map((job) => (
+        <li key={job}>{job}</li>
+      ))}
+    </ol>
   );
 }
 
@@ -66,8 +64,22 @@ function SummaryCard({ section, rank }: { section: ResultTypeSection; rank: 1 | 
       <p className={styles.cardRank}>{rank}순위</p>
       <p className={styles.cardName}>{section.nameKo}</p>
       <p className={styles.cardEn}>{section.nameEn}</p>
-      <p className={styles.cardSubtitle}>{section.subtitle}</p>
+      <p className={styles.cardKeywords}>{section.keywords}</p>
     </div>
+  );
+}
+
+/** 1·2순위에 공통인 안내. 모바일과 A4 모두 결과 전체에 한 번만 보여준다. */
+function CommonNotes({ view }: { view: ResultView }) {
+  return (
+    <section className={styles.notes} aria-label="결과를 볼 때 알아 두세요">
+      <h2 className={styles.notesTitle}>결과를 볼 때 알아 두세요</h2>
+      <ul className={styles.notesList}>
+        {view.commonNotes.map((note) => (
+          <li key={note}>{note}</li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -168,7 +180,6 @@ function MobileLayout({ view }: Pick<Props, "view">) {
             <span className={styles.mHeadingEn}> ({section.nameEn})</span>
           </h2>
           <GroupList section={section} />
-          <JobList section={section} />
         </section>
       ))}
 
@@ -176,6 +187,8 @@ function MobileLayout({ view }: Pick<Props, "view">) {
         <h2 className={styles.mHeading}>전체 점수표</h2>
         <MobileScoreTable view={view} />
       </section>
+
+      <CommonNotes view={view} />
 
       <div className={styles.mFooter}>
         <Link href="/" className={styles.backButton}>홈으로</Link>
@@ -189,7 +202,6 @@ function PrintColumn({ section, rank }: { section: ResultTypeSection; rank: 1 | 
     <div className={styles.pColumn}>
       <SummaryCard section={section} rank={rank} />
       <GroupList section={section} />
-      <JobList section={section} />
     </div>
   );
 }
@@ -217,6 +229,8 @@ function PrintLayout({ view }: { view: ResultView }) {
       <section className={styles.pScores} aria-label="전체 점수표">
         <PrintScoreTable view={view} />
       </section>
+
+      <CommonNotes view={view} />
 
       <footer className={styles.pFooter}>기관명 · 문의처 자리</footer>
     </div>

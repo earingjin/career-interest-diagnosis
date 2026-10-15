@@ -1,5 +1,5 @@
 import questions from "../../content/questions.json";
-import interpretations from "../../content/interpretations.json";
+import interpretations from "../../content/interpretations.server";
 import {
   RIASEC_ORDER,
   type AdjectiveItem,

@@ -1,5 +1,5 @@
 import "server-only";
-import interpretations from "../../content/interpretations.json";
+import interpretations from "../../content/interpretations.server";
 import type { Db } from "../session/db";
 import { buildResultView, ResultViewError, type ResultView } from "./view";
 

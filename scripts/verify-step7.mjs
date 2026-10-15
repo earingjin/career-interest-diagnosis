@@ -19,7 +19,7 @@ const BASE = (process.env.VERIFY_BASE_URL || "http://localhost:3000").replace(/\
 const COOKIE_NAME = "jd_session";
 const TYPES = ["R", "I", "A", "S", "E", "C"];
 const FORBIDDEN_WORDS = ["token", "token_hash", "phone_key", "sessionId"];
-const GROUP_TITLES = ["나의 흥미", "나의 활동", "나의 역량", "나의 성향"];
+const GROUP_TITLES = ["나의 직업흥미 특성", "선호하는 활동과 업무 환경", "경력 활용과 진로 탐색", "추천직업과 확인사항"];
 
 const tally = { pass: 0, fail: 0, warn: 0 };
 

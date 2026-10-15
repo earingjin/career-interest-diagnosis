@@ -5,7 +5,8 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile, readFile, readdir } from "node:fs/promises";
+import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 
 const require = createRequire(import.meta.url);
@@ -19,6 +20,19 @@ const nickname = `Beta${Date.now().toString().slice(-5)}`;
 const phone = "1729";
 const output = "scratch/beta-ux";
 const passed = [];
+const interpretations = JSON.parse(await readFile(new URL("../src/content/interpretations.json", import.meta.url), "utf8"));
+const narrativeFields = ["interest", "workStyle", "preferredActivity", "workEnvironment", "burdensomeActivity", "careerUse", "careerExplore", "careerCheck"];
+const markersFor = (type) => narrativeFields.map((field) => interpretations.types[type][field]);
+const decodeUnicode = (text) => text.replace(/\\u([0-9a-f]{4})/gi, (_, code) => String.fromCharCode(parseInt(code, 16)));
+async function clientFiles(directory) {
+  const files = [];
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const file = path.join(directory, entry.name);
+    if (entry.isDirectory()) files.push(...await clientFiles(file));
+    else if (file.endsWith(".js")) files.push(file);
+  }
+  return files;
+}
 let browser;
 let activePage;
 let courseId;
@@ -35,6 +49,16 @@ try {
   const clientErrors = [];
   page.on("pageerror", (error) => clientErrors.push(error.message));
   await mkdir(output, { recursive: true });
+
+  const chunks = await clientFiles(".next/static/chunks");
+  assert.ok(chunks.length > 0);
+  for (const chunk of chunks) {
+    const source = decodeUnicode(await readFile(chunk, "utf8"));
+    for (const type of Object.keys(interpretations.types)) {
+      for (const marker of markersFor(type)) assert.ok(!source.includes(marker), `${chunk}: ${type} interpretation leaked`);
+    }
+  }
+  check(`production client bundle: ${chunks.length} JavaScript chunks contain no interpretation narratives`);
 
   async function layout(name) {
     // Streaming route refresh can briefly replace the previously visible screen with its fallback.
@@ -92,6 +116,14 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await enter();
   await number(1);
+  for (const route of [entry + "/test", entry + "/result"]) {
+    const response = await context.request.get(base + route);
+    const html = decodeUnicode(await response.text());
+    for (const type of Object.keys(interpretations.types)) {
+      for (const marker of markersFor(type)) assert.ok(!html.includes(marker), `${route}: pre-submission interpretation leaked`);
+    }
+  }
+  check("test HTML/RSC and result URL before submission expose no interpretation narratives");
   await page.getByRole("button", { name: "예", exact: true }).click();
   await number(2);
   // Cancel the automatic timer while it is waiting. The earlier response must remain.
@@ -205,6 +237,21 @@ try {
   check("pending queue blocks submit; failure retries; duplicate touch sends one request; automatic result redirect");
 
   const resultBefore = must(await db.from("results").select("*").eq("session_id", firstSession.id).single());
+  const resultHtml = decodeUnicode(await (await context.request.get(base + entry + "/result")).text());
+  for (const type of Object.keys(interpretations.types)) {
+    for (const marker of markersFor(type)) {
+      assert.equal(resultHtml.includes(marker), [resultBefore.top1, resultBefore.top2].includes(type), `${type}: only selected narratives should be delivered`);
+    }
+  }
+  for (const title of ["나의 직업흥미 특성", "선호하는 활동과 업무 환경", "경력 활용과 진로 탐색", "추천직업과 확인사항"]) {
+    assert.equal(await page.getByRole("heading", { name: title, exact: true }).count(), 2);
+  }
+  // Shared notes for rank 1/2 appear once for the whole result, not once per rank.
+  for (const note of interpretations.commonNotes) {
+    assert.equal(await page.getByText(note, { exact: true }).count(), 1, note);
+  }
+  assert.doesNotMatch(await page.locator("body").innerText(), /중장년|장년|고령|시니어|노년|어르신/);
+  check("submitted HTML/RSC delivers all four areas for top 1/2 only; shared notes once; no other type narratives");
   for (const width of [360, 390, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await layout(`result-${width}`);

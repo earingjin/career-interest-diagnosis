@@ -22,10 +22,12 @@ export type ResultRow = {
 };
 
 export type InterpretationsFile = {
+  commonNotes: string[];
   types: Record<string, Omit<TypeInterpretation, "type"> & { type: string }>;
 };
 
 export type ResultGroup = {
+  id: "interest" | "activity" | "career" | "jobs";
   title: string;
   items: { label: string; text: string }[];
 };
@@ -35,6 +37,7 @@ export type ResultTypeSection = {
   nameKo: string;
   nameEn: string;
   subtitle: string;
+  keywords: string;
   groups: ResultGroup[];
   jobs: string[];
 };
@@ -56,6 +59,8 @@ export type ResultView = {
   top1: ResultTypeSection;
   top2: ResultTypeSection;
   totals: ResultTotalRow[];
+  /** 1·2순위에 공통으로 적용되는 안내. 결과 전체에 한 번만 표시한다. */
+  commonNotes: string[];
 };
 
 export type BuildResultViewInput = {
@@ -66,12 +71,25 @@ export type BuildResultViewInput = {
   interpretations: InterpretationsFile;
 };
 
-// 묶음 4개와 라벨 8개. 순서와 이름이 고정이다.
+// 화면과 관리자 출력에 같은 값을 전달한다. 두 순위에 공통인 안내는 영역에 넣지 않고 commonNotes 로 한 번만 전달한다.
+// "jobs" 영역은 추천직업 목록 다음에 확인사항을 보여준다.
 const GROUP_DEFINITIONS = [
-  { title: "나의 흥미", items: [["흥미특성", "interest"], ["가치", "value"]] },
-  { title: "나의 활동", items: [["선호활동", "preferredActivity"], ["회피활동", "avoidedActivity"]] },
-  { title: "나의 역량", items: [["적성", "aptitude"], ["자기평가", "selfEvaluation"]] },
-  { title: "나의 성향", items: [["성격", "personality"], ["타인평가", "othersEvaluation"]] },
+  {
+    id: "interest", title: "나의 직업흥미 특성",
+    items: [["핵심흥미", "interest"], ["업무방식", "workStyle"]],
+  },
+  {
+    id: "activity", title: "선호하는 활동과 업무 환경",
+    items: [["선호활동", "preferredActivity"], ["업무환경", "workEnvironment"], ["부담활동", "burdensomeActivity"]],
+  },
+  {
+    id: "career", title: "경력 활용과 진로 탐색",
+    items: [["경험활용", "careerUse"], ["탐색방향", "careerExplore"]],
+  },
+  {
+    id: "jobs", title: "추천직업과 확인사항",
+    items: [["확인사항", "careerCheck"]],
+  },
 ] as const;
 
 function isRiasecType(value: unknown): value is RiasecType {
@@ -119,7 +137,9 @@ function buildSection(
     nameKo: interpretation.nameKo,
     nameEn: interpretation.nameEn,
     subtitle: interpretation.subtitle,
+    keywords: interpretation.keywords.join(" · "),
     groups: GROUP_DEFINITIONS.map((group) => ({
+      id: group.id,
       title: group.title,
       items: group.items.map(([label, field]) => ({ label, text: interpretation[field] })),
     })),
@@ -173,5 +193,6 @@ export function buildResultView({
       adjective: adjective[type],
       emphasized: type === top1 || type === top2,
     })),
+    commonNotes: [...interpretations.commonNotes],
   };
 }

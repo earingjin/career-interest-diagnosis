@@ -108,9 +108,57 @@ describe("관리자 상세 화면: 공유 A4 결과지 유지", () => {
   });
 
   it("점수·해설·추천직업이 결과지에 모두 나온다", () => {
-    for (const text of ["홍길동", "테스트 과정", "사회형", "진취형", "나의 흥미", "나의 성향", "가정봉사원", "매장감시원", "기관명 · 문의처 자리"]) {
+    for (const text of ["홍길동", "테스트 과정", "사회형", "진취형", "나의 직업흥미 특성", "경력 활용과 진로 탐색", "가정봉사원", "매장감시원", "기관명 · 문의처 자리"]) {
       expect(sheetPart, text).toContain(text);
     }
+  });
+});
+
+describe("모바일·A4 결과: 같은 해설과 공통 안내", () => {
+  const mobile = renderToStaticMarkup(<ResultScreen view={view} mode="mobile" />);
+  const print = renderToStaticMarkup(<ResultScreen view={view} mode="print" />);
+  const escaped = (text: string) => renderToStaticMarkup(<>{text}</>);
+  const count = (markup: string, text: string) => markup.split(`>${escaped(text)}<`).length - 1;
+  const sectionTexts = [view.top1, view.top2].flatMap((section) => [
+    section.nameKo, section.nameEn, section.keywords, ...section.jobs,
+    ...section.groups.flatMap((group) => [group.title, ...group.items.flatMap((item) => [item.label, item.text])]),
+  ]);
+
+  it("유형 해설·키워드·추천직업·확인사항이 두 화면에 같은 횟수로 나온다", () => {
+    for (const text of sectionTexts) {
+      expect(count(mobile, text), text).toBeGreaterThan(0);
+      expect(count(print, text), text).toBe(count(mobile, text));
+    }
+  });
+
+  it("공통 안내는 두 화면 모두 결과 전체에 정확히 한 번 나온다", () => {
+    for (const note of view.commonNotes) {
+      expect(count(mobile, note), note).toBe(1);
+      expect(count(print, note), note).toBe(1);
+    }
+    expect(count(mobile, "결과를 볼 때 알아 두세요")).toBe(1);
+    expect(count(print, "결과를 볼 때 알아 두세요")).toBe(1);
+  });
+
+  it("키워드는 유형마다 한 번만 나오고 본문 항목으로 반복되지 않는다", () => {
+    for (const section of [view.top1, view.top2]) {
+      expect(count(mobile, section.keywords)).toBe(1);
+      expect(count(print, section.keywords)).toBe(1);
+    }
+    expect(mobile).not.toContain(">키워드<");
+    expect(print).not.toContain(">키워드<");
+  });
+
+  it("A4 공통 안내는 세부 점수표 다음, 하단 문구 앞에 있다", () => {
+    const scores = print.indexOf('aria-label="전체 점수표"');
+    const notes = print.indexOf(escaped(view.commonNotes[0]));
+    expect(scores).toBeGreaterThan(-1);
+    expect(notes).toBeGreaterThan(scores);
+    expect(print.indexOf("기관명 · 문의처 자리")).toBeGreaterThan(notes);
+  });
+
+  it("고객·관리자 화면에 특정 연령대 표현이 없다", () => {
+    for (const markup of [mobile, print]) expect(markup).not.toMatch(/중장년|장년|고령|시니어|노년|어르신/);
   });
 });
 

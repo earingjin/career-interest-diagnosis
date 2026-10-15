@@ -13,7 +13,7 @@
 import assert from "node:assert/strict";
 import { createHash, createHmac, randomBytes, scryptSync } from "node:crypto";
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 
 const PORT = 3108;
@@ -149,7 +149,10 @@ const MEASURE = `(() => {
       minFont = Math.min(minFont, parseFloat(getComputedStyle(el).fontSize));
     }
   }
-  const [header, columns, scores, footer] = sheet.children;
+  const [header, columns, scores, notes, footer] = sheet.children;
+  if (!notes || !footer) return { error: '공통 안내 또는 하단 문구를 찾지 못함' };
+  if (scores.getBoundingClientRect().bottom > notes.getBoundingClientRect().top + eps) problems.push('점수표와 공통 안내가 겹침');
+  if (notes.getBoundingClientRect().bottom > footer.getBoundingClientRect().top + eps) problems.push('공통 안내와 하단 문구가 겹침');
   const colEls = [...columns.children];
   let columnsBottom = 0;
   for (const col of colEls) for (const el of col.querySelectorAll('*')) columnsBottom = Math.max(columnsBottom, el.getBoundingClientRect().bottom);
@@ -300,12 +303,20 @@ try {
     const expected = ["예술형", "탐구형", ...result.job_recommendations.flatMap((entry) => entry.jobs)];
     for (const type of [result.top1, result.top2]) {
       const section = interpretations.types[type];
-      for (const key of ["nameKo", "nameEn", "subtitle", "interest", "value", "preferredActivity", "avoidedActivity", "aptitude", "selfEvaluation", "personality", "othersEvaluation"]) expected.push(section[key]);
+      for (const key of ["nameKo", "nameEn", "interest", "workStyle", "preferredActivity", "workEnvironment", "burdensomeActivity", "careerUse", "careerExplore", "careerCheck"]) expected.push(section[key]);
+      expected.push(section.keywords.join(" · "));
     }
+    expected.push("경력 활용과 진로 탐색", "추천직업과 확인사항");
     for (const text of expected) {
       assert(customerText.includes(text), "고객 결과 내용 누락: " + text);
       assert(adminSheet.includes(text), "관리자 결과 내용 누락: " + text);
     }
+    // 1·2순위 공통 안내는 고객 화면과 관리자 결과지 모두 정확히 한 번
+    for (const note of interpretations.commonNotes) {
+      assert.equal(customerText.split(note).length - 1, 1, "고객 공통 안내 횟수: " + note);
+      assert.equal(adminSheet.split(note).length - 1, 1, "관리자 공통 안내 횟수: " + note);
+    }
+    assert(!/중장년|장년|고령|시니어|노년|어르신/.test(customerText + adminSheet), "연령대 표현 노출");
     assert(!markupOf(customerHtml).includes("data-print-sheet"));
     assert(!/PDF|인쇄|A4/.test(customerText));
     assert(!markupOf(adminHtml).includes("님의 검사 결과"));
@@ -342,8 +353,11 @@ try {
       }
       await delay(250);
     };
-    const pdfPages = async () => {
+    const evidenceDirectory = "scratch/interpretations-admin";
+    mkdirSync(evidenceDirectory, { recursive: true });
+    const pdfPages = async (file) => {
       const { data } = await send("Page.printToPDF", { preferCSSPageSize: true, printBackground: true });
+      if (file) writeFileSync(`${evidenceDirectory}/${file}`, Buffer.from(data, "base64"));
       return (Buffer.from(data, "base64").toString("latin1").match(/\/Type\s*\/Page[^s]/g) ?? []).length;
     };
 
@@ -359,6 +373,8 @@ try {
       })()`);
       assert(Math.abs(info.w - 793.7) < 1.5 && Math.abs(info.h - 1118.5) < 1.5, `결과지 크기 ${info.w}x${info.h}`);
       assert.notEqual(info.tb, "none"); assert(info.hasButton); assert.equal(info.btnInSheet, 0);
+      const screenshot = await send("Page.captureScreenshot", { captureBeyondViewport: true });
+      writeFileSync(`${evidenceDirectory}/preview.png`, Buffer.from(screenshot.data, "base64"));
       return `결과지 ${Math.round(info.w)}x${Math.round(info.h)}px (210x296mm)`;
     });
 
@@ -369,7 +385,7 @@ try {
       const m = await evaluate(MEASURE);
       assert.equal(m.toolbarDisplay, "none", "인쇄 때 도구 줄이 보임");
       assert(Math.abs(m.width - 793.7) < 1.5 && Math.abs(m.height - 1118.5) < 1.5, `인쇄 결과지 크기 ${m.width}x${m.height}`);
-      assert.equal(await pdfPages(), 1, "PDF 가 한 장이 아님");
+      assert.equal(await pdfPages("result.pdf"), 1, "PDF 가 한 장이 아님");
       return "도구 줄 display:none, 결과지 794x1118px, PDF 1장";
     });
 
@@ -387,8 +403,10 @@ try {
         if (m.toolbarDisplay !== "none") problems.push("도구 줄이 인쇄에 보임");
         if (pages !== 1) problems.push(`PDF ${pages}장`);
         if (m.minFont < 13.3) problems.push(`글자 크기 ${m.minFont}px (10pt=13.3px 미만)`);
+        if (m.spare < 8) problems.push(`본문과 점수표 안전 여백 부족: ${m.spare}px`);
         if (problems.length) bad.push(`${t1}${t2}: ${[...new Set(problems)].slice(0, 3).join(", ")}`);
       }
+      writeFileSync(`${evidenceDirectory}/layout-checks.json`, JSON.stringify({ measurements: worst, failures: bad }, null, 2));
       assert.equal(bad.length, 0, bad.slice(0, 5).join(" | "));
       const tightest = worst.reduce((a, b) => (b.spare < a.spare ? b : a));
       return `30개 조합 이상 없음. 가장 빠듯한 조합 ${tightest.pair}: 본문~점수표 여백 ${tightest.spare}px`;

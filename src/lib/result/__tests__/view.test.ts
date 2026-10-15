@@ -48,26 +48,57 @@ describe("buildResultView: 묶음과 라벨", () => {
 
   it("groups 는 정확히 4개이고 title 순서가 고정이다", () => {
     for (const section of [view.top1, view.top2]) {
-      expect(section.groups.map((g) => g.title)).toEqual(["나의 흥미", "나의 활동", "나의 역량", "나의 성향"]);
+      expect(section.groups.map((g) => g.title)).toEqual(["나의 직업흥미 특성", "선호하는 활동과 업무 환경", "경력 활용과 진로 탐색", "추천직업과 확인사항"]);
     }
   });
 
-  it("묶음마다 항목 2개, 라벨은 8개이고 중복이 없다", () => {
+  it("4개 영역에 핵심흥미·활동·탐색·확인사항이 빠짐없이 들어가고 항목명이 겹치지 않는다", () => {
     const labels = view.top1.groups.flatMap((g) => g.items.map((i) => i.label));
-    expect(view.top1.groups.every((g) => g.items.length === 2)).toBe(true);
-    expect(labels).toEqual(["흥미특성", "가치", "선호활동", "회피활동", "적성", "자기평가", "성격", "타인평가"]);
-    expect(new Set(labels).size).toBe(8);
+    expect(view.top1.groups.map((g) => g.items.length)).toEqual([2, 3, 2, 1]);
+    expect(labels).toEqual(["핵심흥미", "업무방식", "선호활동", "업무환경", "부담활동", "경험활용", "탐색방향", "확인사항"]);
+    expect(new Set(labels).size).toBe(labels.length);
   });
 
   it("해설 문장은 해당 유형의 interpretations 값이다", () => {
     const s = interpretations.types.S;
-    const [interest, value] = view.top1.groups[0].items;
-    expect(interest.text).toBe(s.interest);
-    expect(value.text).toBe(s.value);
-    expect(view.top1.groups[3].items.map((i) => i.text)).toEqual([s.personality, s.othersEvaluation]);
+    expect(view.top1.groups[0].items.map((i) => i.text)).toEqual([s.interest, s.workStyle]);
+    expect(view.top1.groups[1].items.map((i) => i.text)).toEqual([s.preferredActivity, s.workEnvironment, s.burdensomeActivity]);
+    expect(view.top1.groups[2].items.map((i) => i.text)).toEqual([s.careerUse, s.careerExplore]);
+    expect(view.top1.groups[3].items.map((i) => i.text)).toEqual([s.careerCheck]);
+    expect(view.top1.keywords).toBe(s.keywords.join(" · "));
     expect(view.top1.nameKo).toBe(s.nameKo);
     expect(view.top1.nameEn).toBe(s.nameEn);
     expect(view.top1.subtitle).toBe(s.subtitle);
+  });
+
+  it("키워드는 요약에만 있고 본문 영역 항목으로 반복하지 않는다", () => {
+    for (const section of [view.top1, view.top2]) {
+      const texts = section.groups.flatMap((g) => g.items.map((i) => i.text));
+      expect(texts).not.toContain(section.keywords);
+      expect(section.groups.flatMap((g) => g.items.map((i) => i.label))).not.toContain("키워드");
+    }
+  });
+
+  it("두 순위에 공통인 안내는 영역에 넣지 않고 결과 전체에 한 번만 담는다", () => {
+    expect(view.commonNotes).toEqual(interpretations.commonNotes);
+    expect(view.commonNotes.join(" ")).toContain("검사에서 직접 측정한 결과가 아닙니다");
+    expect(view.commonNotes.join(" ")).toContain("취업 가능성이나 직무 적합성을 확정한 목록이 아닙니다");
+    const json = JSON.stringify(view);
+    for (const note of view.commonNotes) expect(json.split(JSON.stringify(note).slice(1, -1)).length - 1, note).toBe(1);
+    for (const section of [view.top1, view.top2]) {
+      for (const group of section.groups) expect(group).not.toHaveProperty("note");
+    }
+  });
+
+  it("정상 결과에는 1·2순위 해설만 포함하고 다른 유형의 원문은 전달하지 않는다", () => {
+    const json = JSON.stringify(view);
+    for (const type of RIASEC_ORDER) {
+      const copy = interpretations.types[type];
+      if (type === "S" || type === "E") expect(json).toContain(copy.interest);
+      else for (const marker of [copy.interest, copy.careerUse, copy.careerCheck]) expect(json).not.toContain(marker);
+    }
+    expect(json).not.toContain("seniorJobs");
+    expect(json).not.toContain("generalJobs");
   });
 
   it("top1·top2 의 type 과 추천직업이 맞다", () => {
@@ -199,7 +230,7 @@ describe("buildResultView: 민감한 값", () => {
 
   it("최상위 키는 화면에 쓰는 값뿐이고 원본 results 행의 키가 없다", () => {
     expect(Object.keys(view).sort()).toEqual(
-      ["courseName", "nickname", "scoringVersion", "submittedAt", "top1", "top2", "totals"].sort(),
+      ["commonNotes", "courseName", "nickname", "scoringVersion", "submittedAt", "top1", "top2", "totals"].sort(),
     );
     const json = JSON.stringify(view);
     for (const column of ["general_scores", "adjective_scores", "job_recommendations", "tie_broken"]) {

@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+vi.mock("server-only", () => ({}));
+import { describe, expect, it, vi } from "vitest";
 import questions from "../../../content/questions.json";
 import interpretations from "../../../content/interpretations.json";
 import type { TypeInterpretation } from "../../../content/types";
