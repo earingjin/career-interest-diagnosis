@@ -127,6 +127,24 @@ describe("saveQueue", () => {
     queue.remove("g01");
     expect(queue.peekAll()).toEqual([{ itemId: "g02", value: false }]);
   });
+
+  it("읽기는 가능하지만 용량 초과로 쓰기만 실패해도 새 응답과 화면 위치를 보존한다", () => {
+    const storage: QueueStorage = {
+      getItem: () => JSON.stringify([{ itemId: "g01", value: true }]),
+      setItem: () => { throw new Error("quota exceeded"); },
+    };
+    const queue = createSaveQueue(storage, CODE);
+    queue.enqueue("g01", false);
+    queue.enqueue("g02", true);
+    queue.enqueueStep("general-3");
+    expect(queue.peekAll()).toEqual([
+      { itemId: "g01", value: false },
+      { itemId: "g02", value: true },
+      { itemId: STEP_KEY, value: "general-3" },
+    ]);
+    queue.remove("g01", false);
+    expect(queue.peekAll().map((item) => item.itemId)).toEqual(["g02", STEP_KEY]);
+  });
 });
 
 describe("openOwnedQueue", () => {

@@ -12,6 +12,9 @@ type Props = {
   answeredCount: number;
   selectedCount: number;
   headingRef: RefObject<HTMLHeadingElement | null>;
+  generalQuestions: { id: string; text: string }[];
+  general: Record<string, boolean>;
+  onEditGeneral: (number: number) => void;
   /** 첫 미응답 문항으로 이동 */
   onGoToFirstUnanswered: () => void;
   /** 형용사 화면으로 이동 */
@@ -29,6 +32,9 @@ export function ReviewScreen({
   answeredCount,
   selectedCount,
   headingRef,
+  generalQuestions,
+  general,
+  onEditGeneral,
   onGoToFirstUnanswered,
   onGoToAdjectives,
   onBack,
@@ -120,6 +126,27 @@ export function ReviewScreen({
             형용사 선택 {selectedCount}개 ({MIN_ADJECTIVE_SELECTIONS}개 이상이어야 제출할 수 있어요)
           </li>
         </ul>
+
+        {phase === "review" && (
+          <>
+            <details className={styles.reviewDetails}>
+              <summary>일반성향 응답 확인·수정</summary>
+              <ol className={styles.reviewList}>
+                {generalQuestions.map((question, index) => (
+                  <li key={question.id}>
+                    <button type="button" className={styles.reviewItem} onClick={() => onEditGeneral(index + 1)}>
+                      <span>{index + 1}. {question.text}</span>
+                      <strong>{general[question.id] === undefined ? "미응답" : general[question.id] ? "예" : "아니요"} · 수정</strong>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            </details>
+            <button type="button" className={styles.secondary} onClick={onGoToAdjectives}>
+              형용사 선택 확인·수정
+            </button>
+          </>
+        )}
 
         {missingGeneral > 0 && (
           <div className={styles.notice}>

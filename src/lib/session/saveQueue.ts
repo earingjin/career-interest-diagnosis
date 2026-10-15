@@ -77,8 +77,10 @@ export function createSaveQueue(storage: QueueStorage, courseCode: string): Save
   const key = queueKey(courseCode);
   // 저장소가 막혀 있어도(시크릿 모드, 용량 초과) 이번 방문 동안은 메모리로 동작한다.
   let memory: PendingItem[] = [];
+  let storageWritable = true;
 
   function load(): PendingItem[] {
+    if (!storageWritable) return stepLast(memory).map((item) => ({ ...item }));
     try {
       memory = parse(storage.getItem(key));
     } catch {
@@ -93,6 +95,7 @@ export function createSaveQueue(storage: QueueStorage, courseCode: string): Save
       storage.setItem(key, JSON.stringify(items));
     } catch {
       // 저장 실패: 메모리에만 남는다.
+      storageWritable = false;
     }
   }
 

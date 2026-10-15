@@ -77,6 +77,13 @@ export function EntryForm({ courseCode }: { courseCode: string }) {
           onChange={(e) => setNickname(e.target.value)}
           autoComplete="off"
           autoCapitalize="off"
+          enterKeyHint="next"
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+              event.preventDefault();
+              phoneRef.current?.focus();
+            }
+          }}
           maxLength={30}
           aria-describedby="nickname-hint"
         />
@@ -92,6 +99,13 @@ export function EntryForm({ courseCode }: { courseCode: string }) {
           className={styles.input}
           type="text"
           inputMode="numeric"
+          enterKeyHint="done"
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+              event.preventDefault();
+              consentRef.current?.focus();
+            }
+          }}
           pattern="[0-9]*"
           maxLength={4}
           value={phoneLast4}

@@ -53,6 +53,7 @@ export function TestFlow({
   const [step, setStep] = useState(() => resolveInitialStep(currentStep, initialGeneral, initialAdjectives));
   const [general, setGeneral] = useState<Record<string, boolean>>(initialGeneral);
   const [selected, setSelected] = useState<Set<string>>(() => new Set(initialAdjectives));
+  const [editingGeneral, setEditingGeneral] = useState(false);
 
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const headingRef = useRef<HTMLHeadingElement | null>(null);
@@ -109,7 +110,8 @@ export function TestFlow({
       firstRenderRef.current = false;
       return;
     }
-    headingRef.current?.focus();
+    window.scrollTo(0, 0);
+    headingRef.current?.focus({ preventScroll: true });
   }, [step]);
 
   const go = useCallback(
@@ -143,6 +145,8 @@ export function TestFlow({
     saver.enqueue(id, value);
 
     if (advanceTimerRef.current !== null) clearTimeout(advanceTimerRef.current);
+    // 확인 화면에서 수정할 때는 응답을 살펴본 뒤 직접 돌아간다.
+    if (editingGeneral) return;
     advanceTimerRef.current = setTimeout(() => {
       advanceTimerRef.current = null;
       goForward(
@@ -188,7 +192,7 @@ export function TestFlow({
             ← 뒤로
           </button>
           <p className={styles.counter}>
-            전체 {n} / {GENERAL_COUNT}
+            일반성향 {n} / {GENERAL_COUNT}
           </p>
         </header>
         <div
@@ -228,13 +232,21 @@ export function TestFlow({
         </div>
 
         <div className={styles.nextSlot}>
+          <p className={styles.hint}>
+            {editingGeneral ? "답을 수정한 뒤 확인 화면으로 돌아가세요." : "답을 누르면 자동으로 다음 문항으로 넘어가요."}
+          </p>
           {answered && (
             <button
               type="button"
               className={styles.primary}
-              onClick={() => goForward(nextStep(step), counts, answeredIds)}
+              onClick={() => {
+                if (editingGeneral) {
+                  setEditingGeneral(false);
+                  goForward("review", counts, answeredIds);
+                } else goForward(nextStep(step), counts, answeredIds);
+              }}
             >
-              다음
+              {editingGeneral ? "확인 화면으로" : "다음"}
             </button>
           )}
         </div>
@@ -271,6 +283,9 @@ export function TestFlow({
           <button type="button" className={styles.primary} onClick={() => goForward("adjectives", counts, answeredIds)}>
             시작하기
           </button>
+          <button type="button" className={styles.secondary} onClick={() => go(prevStep(step))}>
+            ← 이전
+          </button>
         </div>
       </>
     );
@@ -283,7 +298,7 @@ export function TestFlow({
             선택 {selectedCount}개 (최소 {MIN_ADJECTIVE_SELECTIONS}개)
           </h1>
           <p className={styles.hint} role="status">
-            {enough ? "" : "몇 개 더 고르면 다음으로 갈 수 있어요"}
+            {enough ? "다음으로 갈 수 있어요. 다시 누르면 선택이 해제돼요." : `${MIN_ADJECTIVE_SELECTIONS - selectedCount}개 더 골라 주세요. 다시 누르면 선택이 해제돼요.`}
           </p>
         </header>
         <div className={styles.chips}>
@@ -303,7 +318,7 @@ export function TestFlow({
             );
           })}
         </div>
-        <div className={styles.footer}>
+        <div className={`${styles.footer} ${styles.adjectivesFooter}`}>
           <button
             type="button"
             className={styles.primary}
@@ -325,6 +340,12 @@ export function TestFlow({
         answeredCount={answeredCount}
         selectedCount={selectedCount}
         headingRef={headingRef}
+        generalQuestions={generalQuestions}
+        general={general}
+        onEditGeneral={(number) => {
+          setEditingGeneral(true);
+          go(`general-${number}`);
+        }}
         onGoToFirstUnanswered={() => go(firstUnansweredGeneral(new Set(answeredIds)))}
         onGoToAdjectives={() => goForward("adjectives", counts, answeredIds)}
         onBack={() => go(prevStep(step))}
