@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useRef, useState, type RefObject } from "react";
 import { useRouter } from "next/navigation";
 import { GENERAL_COUNT, MIN_ADJECTIVE_SELECTIONS } from "@/lib/session/progress";
 import styles from "./TestFlow.module.css";
-
-type Phase = "review" | "confirm" | "submitting" | "done";
 
 type Props = {
   courseCode: string;
@@ -19,7 +17,7 @@ type Props = {
   onGoToFirstUnanswered: () => void;
   /** 형용사 화면으로 이동 */
   onGoToAdjectives: () => void;
-  onBack: () => void;
+  onBusyChange: (busy: boolean) => void;
   /** 응답 큐를 비운다. 끝난 뒤 남은 항목 수를 돌려준다. */
   drainQueue: () => Promise<number>;
 };
@@ -37,37 +35,27 @@ export function ReviewScreen({
   onEditGeneral,
   onGoToFirstUnanswered,
   onGoToAdjectives,
-  onBack,
+  onBusyChange,
   drainQueue,
 }: Props) {
   const router = useRouter();
-  const [phase, setPhase] = useState<Phase>("review");
+  const [busy, setBusy] = useState(false);
+  const submittingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
-  const [next, setNext] = useState(`/c/${courseCode}/result`);
-  const confirmRef = useRef<HTMLParagraphElement | null>(null);
 
   const missingGeneral = GENERAL_COUNT - answeredCount;
   const adjectivesShort = Math.max(0, MIN_ADJECTIVE_SELECTIONS - selectedCount);
   const ready = missingGeneral === 0 && adjectivesShort === 0;
 
-  // 확인 단계와 완료 화면으로 바뀌면 그 문구로 초점을 옮긴다.
-  useEffect(() => {
-    if (phase === "confirm") confirmRef.current?.focus();
-    if (phase === "done") headingRef.current?.focus();
-  }, [phase, headingRef]);
-
   async function submit() {
-    setPhase("submitting");
+    if (submittingRef.current || !ready) return;
+    submittingRef.current = true;
+    setBusy(true);
+    onBusyChange(true);
     setError(null);
 
-    // 못 보낸 응답이 있으면 먼저 보낸다. 남아 있으면 제출하지 않는다.
-    if ((await drainQueue()) > 0) {
-      setError(PENDING_ERROR);
-      setPhase("review");
-      return;
-    }
-
     try {
+      if ((await drainQueue()) > 0) throw new Error(PENDING_ERROR);
       const response = await fetch("/api/session/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -76,8 +64,7 @@ export function ReviewScreen({
       const data = await response.json().catch(() => null);
 
       if (response.ok && data?.ok === true) {
-        if (typeof data.next === "string") setNext(data.next);
-        setPhase("done");
+        router.replace(`/c/${courseCode}/result`);
         return;
       }
       if (response.status === 409 && data?.error?.code === "ALREADY_SUBMITTED") {
@@ -85,37 +72,19 @@ export function ReviewScreen({
         return;
       }
       setError(data?.error?.message ?? NETWORK_ERROR);
-    } catch {
-      setError(NETWORK_ERROR);
+    } catch (cause) {
+      setError(cause instanceof Error && cause.message === PENDING_ERROR ? PENDING_ERROR : NETWORK_ERROR);
     }
-    setPhase("review");
+    submittingRef.current = false;
+    setBusy(false);
+    onBusyChange(false);
   }
-
-  if (phase === "done") {
-    return (
-      <>
-        <div className={styles.centerArea}>
-          <h1 className={styles.title} tabIndex={-1} ref={headingRef}>
-            제출이 완료되었습니다.
-          </h1>
-          <p className={styles.body}>검사 결과는 이 휴대폰에서 확인할 수 있어요.</p>
-        </div>
-        <div className={styles.footer}>
-          <button type="button" className={styles.primary} onClick={() => router.push(next)}>
-            결과 보기
-          </button>
-        </div>
-      </>
-    );
-  }
-
-  const busy = phase === "submitting";
 
   return (
     <>
       <div className={styles.reviewArea}>
         <h1 className={styles.title} tabIndex={-1} ref={headingRef}>
-          응답을 한 번 더 확인해 주세요
+          최종 제출
         </h1>
 
         <ul className={styles.summary}>
@@ -127,7 +96,7 @@ export function ReviewScreen({
           </li>
         </ul>
 
-        {phase === "review" && (
+        {!busy && (
           <>
             <details className={styles.reviewDetails}>
               <summary>일반성향 응답 확인·수정</summary>
@@ -173,35 +142,14 @@ export function ReviewScreen({
       </div>
 
       <div className={styles.footer}>
-        {ready && phase === "review" && (
-          <button type="button" className={styles.primary} onClick={() => setPhase("confirm")}>
-            검사 제출하기
-          </button>
-        )}
-
-        {ready && (phase === "confirm" || busy) && (
-          <div className={styles.confirm}>
-            <p className={styles.confirmText} tabIndex={-1} ref={confirmRef}>
-              제출하면 응답을 바꿀 수 없어요. 제출할까요?
-            </p>
-            <button type="button" className={styles.primary} onClick={submit} disabled={busy}>
-              네, 제출합니다
-            </button>
-            <button type="button" className={styles.secondary} onClick={() => setPhase("review")} disabled={busy}>
-              아니요, 더 볼게요
-            </button>
-          </div>
-        )}
+        <p className={styles.body}>제출하면 응답을 수정할 수 없어요. 필요한 경우 위에서 응답을 수정해 주세요.</p>
+        <button type="button" className={styles.primary} onClick={submit} disabled={!ready || busy}>
+          {busy ? "제출하는 중…" : "검사 제출하기"}
+        </button>
 
         <p className={styles.body} aria-live="polite">
           {busy ? "제출하고 있어요..." : ""}
         </p>
-
-        {phase === "review" && (
-          <button type="button" className={styles.secondary} onClick={onBack}>
-            ← 이전
-          </button>
-        )}
       </div>
     </>
   );

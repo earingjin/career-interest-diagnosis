@@ -21,7 +21,7 @@
 
 /* ===== 첫 화면 ===== */
 .hero {
-  padding: 2.5rem 0 2.75rem;
+  padding: 1.75rem 0;
   color: #ffffff;
   background: linear-gradient(160deg, var(--navy-deep) 0%, var(--navy) 60%, #14408a 100%);
 }
@@ -35,7 +35,7 @@
 }
 
 .title {
-  font-size: 1.9rem;
+  font-size: 1.7rem;
   font-weight: 800;
   line-height: 1.35;
 }
@@ -137,9 +137,6 @@
   padding: 2.25rem 0;
 }
 
-.tinted {
-  background: var(--sky);
-}
 
 .heading {
   margin-bottom: 1.25rem;
@@ -147,55 +144,6 @@
   font-weight: 800;
   line-height: 1.4;
   color: var(--navy);
-}
-
-.cards {
-  display: grid;
-  gap: 0.9rem;
-  list-style: none;
-}
-
-.card {
-  padding: 1.1rem 1.25rem;
-  background: #ffffff;
-  border: 1px solid var(--line);
-  border-top: 4px solid var(--blue);
-  border-radius: 0.75rem;
-}
-
-.cardTitle {
-  margin-bottom: 0.3rem;
-  font-size: 1.1rem;
-  font-weight: 800;
-  color: var(--navy);
-}
-
-.steps {
-  display: grid;
-  gap: 1rem;
-  list-style: none;
-}
-
-.steps li {
-  display: flex;
-  gap: 1rem;
-  align-items: flex-start;
-  padding: 1rem 1.1rem;
-  background: #ffffff;
-  border-radius: 0.75rem;
-}
-
-.stepNumber {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: 2.4rem;
-  height: 2.4rem;
-  font-weight: 800;
-  color: #ffffff;
-  background: var(--navy);
-  border-radius: 50%;
 }
 
 .notes {
@@ -215,7 +163,7 @@
 /* ===== 넓은 화면 ===== */
 @media (min-width: 48rem) {
   .hero {
-    padding: 4.5rem 0 5rem;
+    padding: 3rem 0;
   }
 
   .title {
@@ -226,19 +174,11 @@
     font-size: 1.25rem;
   }
 
-  .cards {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  .steps {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  .steps li {
-    flex-direction: column;
-  }
-
   .section {
     padding: 3.5rem 0;
   }
 }
+
+.details { margin-top: 1.25rem; padding: 0.75rem; border: 1px solid var(--line); border-radius: 0.75rem; }
+.details summary { min-height: 48px; font-weight: 700; cursor: pointer; }
+.details .notes { margin-top: 0.5rem; }

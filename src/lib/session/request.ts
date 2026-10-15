@@ -1,6 +1,6 @@
 import "server-only";
 import { nicknameIsValid } from "../security/hash";
-import { STEP_ORDER } from "./progress";
+import { LEGACY_STEPS, STEP_ORDER, normalizeStep } from "./progress";
 
 export class RequestValidationError extends Error {
   constructor(message: string) {
@@ -82,15 +82,15 @@ export function parseEnterBody(body: unknown): EnterInput {
   return { courseCode, nickname, phoneLast4 };
 }
 
-// general-1~42, part1-done, adjectives-intro, adjectives, review
-export const VALID_STEPS: ReadonlySet<string> = new Set(STEP_ORDER);
+// 오래된 브라우저/저장 큐의 요청도 검증한 뒤 새 단계로 저장한다.
+export const VALID_STEPS: ReadonlySet<string> = new Set([...STEP_ORDER, ...LEGACY_STEPS]);
 
 export function parseStepBody(body: unknown): string {
   const step = asRecord(body).step;
   if (typeof step !== "string" || !VALID_STEPS.has(step)) {
     throw new RequestValidationError("올바르지 않은 단계예요.");
   }
-  return step;
+  return normalizeStep(step);
 }
 
 /**

@@ -109,7 +109,7 @@ describe("parseStepBody", () => {
       "adjectives",
       "review",
     ];
-    for (const step of steps) expect(parseStepBody({ step })).toBe(step);
+    for (const step of steps) expect(parseStepBody({ step })).toBe(step === "adjectives-intro" ? "adjectives" : step);
   });
 
   it("그 밖의 값은 거부한다", () => {
@@ -122,7 +122,7 @@ describe("parseStepBody", () => {
 
 describe("parseStepBody (part1-done)", () => {
   it("part1-done 을 허용한다", () => {
-    expect(parseStepBody({ step: "part1-done" })).toBe("part1-done");
+    expect(parseStepBody({ step: "part1-done" })).toBe("adjectives");
   });
 });
 

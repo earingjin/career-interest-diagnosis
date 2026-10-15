@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { isEntryReady } from "@/lib/session/entryForm";
+import { CustomerNavigation } from "@/app/CustomerNavigation";
 import styles from "./EntryForm.module.css";
 
 const NETWORK_ERROR = "연결에 문제가 생겼어요. 잠시 후 다시 시도해 주세요.";
@@ -61,6 +62,7 @@ export function EntryForm({ courseCode }: { courseCode: string }) {
 
   return (
     <form className={styles.form} onSubmit={handleSubmit} onInput={syncInputValues} onBlur={syncInputValues}>
+      <CustomerNavigation disabled={submitting} />
       <div className={styles.field}>
         <label className={styles.label} htmlFor="nickname">
           닉네임

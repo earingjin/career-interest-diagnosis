@@ -169,9 +169,15 @@ export function useResponseSaver({ courseCode, sessionId, onRestore, onSubmitted
     }
 
     const onOnline = () => void flushRef.current();
+    // 새로고침·문서 이동 전 경고. 대기 응답은 기존 localStorage 큐로 복구한다.
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (getQueue().size() > 0) event.preventDefault();
+    };
     window.addEventListener("online", onOnline);
+    window.addEventListener("beforeunload", onBeforeUnload);
     return () => {
       window.removeEventListener("online", onOnline);
+      window.removeEventListener("beforeunload", onBeforeUnload);
       clearRetry();
     };
   }, [getQueue, clearRetry]);

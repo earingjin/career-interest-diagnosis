@@ -6,6 +6,8 @@ import {
   generalNumber,
   isStepReachable,
   nextStep,
+  normalizeStep,
+  isKnownStep,
   resolveResumeStep,
   prevStep,
 } from "../progress";
@@ -16,11 +18,11 @@ const counts = (answeredGeneralCount: number, selectedAdjectiveCount = 0) => ({
 });
 
 describe("STEP_ORDER", () => {
-  it("general-1 … general-42, part1-done, adjectives-intro, adjectives, review 순서다", () => {
-    expect(STEP_ORDER).toHaveLength(46);
+  it("general-1 … general-42, adjectives, review 순서다", () => {
+    expect(STEP_ORDER).toHaveLength(44);
     expect(STEP_ORDER[0]).toBe("general-1");
     expect(STEP_ORDER[41]).toBe("general-42");
-    expect(STEP_ORDER.slice(42)).toEqual(["part1-done", "adjectives-intro", "adjectives", "review"]);
+    expect(STEP_ORDER.slice(42)).toEqual(["adjectives", "review"]);
   });
 });
 
@@ -30,10 +32,12 @@ describe("nextStep / prevStep", () => {
     expect(prevStep("general-2")).toBe("general-1");
   });
 
-  it("42번 다음은 part1-done, 그 다음은 adjectives-intro", () => {
-    expect(nextStep("general-42")).toBe("part1-done");
-    expect(nextStep("part1-done")).toBe("adjectives-intro");
-    expect(nextStep("adjectives-intro")).toBe("adjectives");
+  it("42번 다음은 형용사 선택, 이어서 최종 제출", () => {
+    expect(nextStep("general-42")).toBe("adjectives");
+    expect(nextStep("part1-done")).toBe("review");
+    expect(nextStep("adjectives-intro")).toBe("review");
+    expect(prevStep("adjectives")).toBe("general-42");
+    expect(prevStep("review")).toBe("adjectives");
     expect(nextStep("adjectives")).toBe("review");
     expect(prevStep("part1-done")).toBe("general-42");
   });
@@ -122,19 +126,32 @@ describe("resolveResumeStep", () => {
     expect(resolveResumeStep("general-1", new Set())).toBe("general-1");
   });
 
-  it("42개를 모두 응답했으면 part1-done", () => {
-    expect(resolveResumeStep("general-1", ids(42))).toBe("part1-done");
-    expect(resolveResumeStep("general-42", ids(42))).toBe("part1-done");
+  it("42개를 모두 응답했으면 형용사 선택", () => {
+    expect(resolveResumeStep("general-1", ids(42))).toBe("adjectives");
+    expect(resolveResumeStep("general-42", ids(42))).toBe("adjectives");
   });
 
   it("중간이 비어 있으면 그 문항으로 돌려보낸다", () => {
     expect(resolveResumeStep("general-9", new Set(["g01", "g02", "g04", "g05"]))).toBe("general-3");
   });
 
-  it("general 이 아닌 단계는 그대로 둔다", () => {
+  it("형용사와 최종 제출은 그대로, 이전 안내 단계는 형용사로 복구한다", () => {
     for (const step of ["part1-done", "adjectives-intro", "adjectives", "review"]) {
-      expect(resolveResumeStep(step, ids(3)), step).toBe(step);
-      expect(resolveResumeStep(step, ids(42)), step).toBe(step);
+      expect(resolveResumeStep(step, ids(3)), step).toBe(normalizeStep(step));
+      expect(resolveResumeStep(step, ids(42)), step).toBe(normalizeStep(step));
     }
+  });
+});
+
+describe("이전 단계값 호환성", () => {
+  it.each(["part1-done", "adjectives-intro"])("%s는 알려진 형용사 단계로 정규화한다", (step) => {
+    expect(isKnownStep(step)).toBe(true);
+    expect(normalizeStep(step)).toBe("adjectives");
+    expect(isStepReachable(step, counts(41))).toBe(false);
+    expect(isStepReachable(step, counts(42))).toBe(true);
+  });
+  it("알 수 없는 값은 새 단계로 임의 승격하지 않는다", () => {
+    expect(isKnownStep("done")).toBe(false);
+    expect(normalizeStep("done")).toBe("done");
   });
 });

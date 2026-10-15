@@ -59,100 +59,37 @@ export function StartAction({ state, variant }: { state: StartState; variant: "h
   );
 }
 
-const TYPES = ["현실형", "탐구형", "예술형", "사회형", "진취형", "관습형"];
-
-/** 시작 버튼 외의 소개 내용. 데이터 조회 없이 항상 같은 내용이다. */
+/** 기본 과정 조회와 시작 동작은 StartAction을 그대로 사용한다. */
 export function Intro({ hero, footer }: { hero: React.ReactNode; footer: React.ReactNode }) {
   return (
     <main className={styles.home}>
       <section className={styles.hero} aria-labelledby="home-title">
         <div className={styles.inner}>
           <p className={styles.eyebrow}>직업흥미 진단</p>
-          <h1 id="home-title" className={styles.title}>
-            나에게 맞는 직업 흥미를
-            <br />
-            알아보세요
-          </h1>
-          <p className={styles.lead}>
-            질문에 답하고 나의 흥미 유형 두 가지를 확인해요. 그 유형에 어울리는 직업도 함께 알려 드려요.
-          </p>
+          <h1 id="home-title" className={styles.title}>나에게 맞는 직업 흥미를<br />알아보세요</h1>
+          <p className={styles.lead}>질문에 답하고 나의 흥미 유형과 어울리는 직업을 확인해요.</p>
           <div className={styles.action}>{hero}</div>
-          <p className={styles.heroNote}>
-            닉네임과 휴대폰 뒷자리 4자리로 시작해요. 중간에 멈춰도 같은 정보로 다시 들어오면 이어서 할 수 있어요.
-          </p>
+          <p className={styles.heroNote}>진행 중에는 같은 정보로 이어할 수 있어요.</p>
         </div>
       </section>
-
       <section className={styles.section} aria-labelledby="about-title">
         <div className={styles.inner}>
-          <h2 id="about-title" className={styles.heading}>
-            이런 진단이에요
-          </h2>
-          <ul className={styles.cards}>
-            <li className={styles.card}>
-              <h3 className={styles.cardTitle}>6가지 흥미 유형</h3>
-              <p>{TYPES.join(" · ")} 중에서 나의 1순위와 2순위 유형을 알려 드려요.</p>
-            </li>
-            <li className={styles.card}>
-              <h3 className={styles.cardTitle}>문항 구성</h3>
-              <p>일반성향 문항 42개에 예 또는 아니요로 답하고, 나에게 어울리는 형용사를 5개 이상 골라요.</p>
-            </li>
-            <li className={styles.card}>
-              <h3 className={styles.cardTitle}>결과지 제공</h3>
-              <p>유형별 해설과 추천직업이 담긴 결과지를 확인하고, PDF 로 저장하거나 A4 로 인쇄할 수 있어요.</p>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <section className={`${styles.section} ${styles.tinted}`} aria-labelledby="steps-title">
-        <div className={styles.inner}>
-          <h2 id="steps-title" className={styles.heading}>
-            진행 방법
-          </h2>
-          <ol className={styles.steps}>
-            <li>
-              <span className={styles.stepNumber} aria-hidden="true">
-                1
-              </span>
-              <div>
-                <h3 className={styles.cardTitle}>정보 입력</h3>
-                <p>닉네임과 휴대폰 뒷자리 4자리를 입력하고, 개인정보 수집 안내를 확인한 뒤 동의해요.</p>
-              </div>
-            </li>
-            <li>
-              <span className={styles.stepNumber} aria-hidden="true">
-                2
-              </span>
-              <div>
-                <h3 className={styles.cardTitle}>문항에 답하기</h3>
-                <p>일반성향 42문항에 답한 뒤 형용사를 골라요. 답은 문항마다 자동으로 저장돼요.</p>
-              </div>
-            </li>
-            <li>
-              <span className={styles.stepNumber} aria-hidden="true">
-                3
-              </span>
-              <div>
-                <h3 className={styles.cardTitle}>결과 확인</h3>
-                <p>제출하면 바로 결과를 볼 수 있어요. 결과지는 PDF 로 저장할 수 있어요.</p>
-              </div>
-            </li>
-          </ol>
-        </div>
-      </section>
-
-      <section className={styles.section} aria-labelledby="notes-title">
-        <div className={styles.inner}>
-          <h2 id="notes-title" className={styles.heading}>
-            시작하기 전에
-          </h2>
+          <h2 id="about-title" className={styles.heading}>이런 진단이에요</h2>
           <ul className={styles.notes}>
-            <li>정답은 없어요. 평소의 나를 떠올리며 솔직하게 답해 주세요.</li>
-            <li>제출하면 응답을 바꿀 수 없어요. 제출 전에 한 번 더 확인할 수 있어요.</li>
-            <li>결과는 처음 검사한 휴대폰에서 확인할 수 있어요.</li>
-            <li>결과는 직업을 생각해 볼 때 참고하는 자료예요.</li>
+            <li>일반성향 42개 문항 · 형용사 30개 중 5개 이상 선택</li>
+            <li>6가지 흥미 유형 중 나의 1·2순위와 추천직업 제공</li>
+            <li>결과지 PDF 저장 및 A4 인쇄</li>
           </ul>
+          <details className={styles.details}>
+            <summary>진행 방법 · 시작하기 전에</summary>
+            <ol className={styles.notes}>
+              <li>닉네임과 휴대폰 뒷자리 4자리 입력 후 개인정보 수집에 동의해요.</li>
+              <li>평소의 나를 떠올리며 솔직하게 답해 주세요. 답은 자동으로 저장돼요.</li>
+              <li>최종 제출 전에 응답을 수정할 수 있어요. 제출 후에는 바꿀 수 없어요.</li>
+              <li>결과는 처음 진단한 기기에서 확인할 수 있어요. 이용 종료 후에는 결과를 다시 열 수 없으니 먼저 PDF로 저장해 주세요.</li>
+              <li>결과는 직업을 생각해 볼 때 참고하는 자료예요.</li>
+            </ol>
+          </details>
           <div className={styles.action}>{footer}</div>
         </div>
       </section>

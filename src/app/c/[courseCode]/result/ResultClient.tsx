@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { ResultView } from "@/lib/result/view";
+import { CustomerNavigation } from "@/app/CustomerNavigation";
 import { ResultScreen } from "./ResultScreen";
 import styles from "./result.module.css";
 
@@ -41,6 +42,7 @@ export function ResultClient({ view }: { view: ResultView }) {
       <style>{"@page { size: A4; margin: 0; }"}</style>
 
       <div className={styles.mobileArea}>
+        <div className={styles.resultNavigation}><CustomerNavigation canEnd submitted /></div>
         <ResultScreen view={view} mode="mobile" onPrintPreview={() => setPreviewing(true)} />
       </div>
 

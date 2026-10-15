@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { ResultTypeSection, ResultView } from "@/lib/result/view";
 import { ResultHexagon } from "./ResultHexagon";
 import styles from "./result.module.css";
@@ -180,8 +181,9 @@ function MobileLayout({ view, onPrintPreview }: Pick<Props, "view" | "onPrintPre
 
       <div className={styles.mFooter}>
         <button type="button" className={styles.printButton} onClick={onPrintPreview}>
-          A4 출력
+          PDF 저장 / 인쇄
         </button>
+        <Link href="/" className={styles.backButton}>홈으로</Link>
       </div>
     </article>
   );

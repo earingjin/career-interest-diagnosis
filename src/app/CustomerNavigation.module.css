@@ -1,0 +1,11 @@
+.wrapper { display: flex; flex-direction: column; gap: 0.75rem; }
+.navigation, .right, .actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.navigation { justify-content: space-between; }
+.right { margin-left: auto; }
+.wrapper button { min-height: 48px; padding: 0.4rem 0.65rem; font: inherit; font-weight: 600; color: #171717; background: #fff; border: 1px solid #767676; border-radius: 0.5rem; cursor: pointer; }
+.wrapper button:disabled { opacity: 0.6; cursor: not-allowed; }
+.wrapper button:focus-visible { outline: 3px solid #1a56db; outline-offset: 2px; }
+.notice { padding: 0.75rem; background: #fff4d6; border-radius: 0.5rem; }
+.actions { margin-top: 0.75rem; }
+.error { padding: 0.75rem; color: #9b1c1c; background: #fdecec; border-radius: 0.5rem; }
+@media print { .wrapper { display: none; } }

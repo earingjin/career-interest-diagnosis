@@ -9,6 +9,19 @@
   color: var(--text);
 }
 
+.resultNavigation {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1rem 1.25rem 0;
+}
+
+.mFooter a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
 /* ===== 화면에서 무엇이 보이는지 ===== */
 .mobileArea {
   display: block;

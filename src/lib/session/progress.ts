@@ -5,13 +5,17 @@ export const MIN_ADJECTIVE_SELECTIONS = 5;
 
 export const STEP_ORDER: readonly string[] = [
   ...Array.from({ length: GENERAL_COUNT }, (_, i) => `general-${i + 1}`),
-  "part1-done",
-  "adjectives-intro",
   "adjectives",
   "review",
 ];
 
 const STEP_INDEX = new Map(STEP_ORDER.map((step, index) => [step, index]));
+
+// 이미 DB나 오프라인 큐에 기록된 안내 단계는 형용사 선택으로 이어진다.
+export const LEGACY_STEPS = ["part1-done", "adjectives-intro"] as const;
+export function normalizeStep(step: string): string {
+  return (LEGACY_STEPS as readonly string[]).includes(step) ? "adjectives" : step;
+}
 
 export type ProgressCounts = {
   answeredGeneralCount: number;
@@ -19,7 +23,7 @@ export type ProgressCounts = {
 };
 
 export function isKnownStep(step: string): boolean {
-  return STEP_INDEX.has(step);
+  return STEP_INDEX.has(normalizeStep(step));
 }
 
 /** 1~42 번 일반성향 문항의 id. 1 → "g01" */
@@ -36,13 +40,13 @@ export function generalNumber(step: string): number | null {
 }
 
 export function nextStep(step: string): string | null {
-  const index = STEP_INDEX.get(step);
+  const index = STEP_INDEX.get(normalizeStep(step));
   if (index === undefined) return null;
   return STEP_ORDER[index + 1] ?? null;
 }
 
 export function prevStep(step: string): string | null {
-  const index = STEP_INDEX.get(step);
+  const index = STEP_INDEX.get(normalizeStep(step));
   if (index === undefined || index === 0) return null;
   return STEP_ORDER[index - 1];
 }
@@ -60,13 +64,12 @@ export function firstUnansweredGeneral(answeredIds: Set<string>): string | null 
  * 서버(step 라우트)와 화면이 같은 규칙을 쓴다. 서버에서는 직접 센 값을 넘긴다.
  */
 export function isStepReachable(step: string, counts: ProgressCounts): boolean {
+  step = normalizeStep(step);
   if (!STEP_INDEX.has(step)) return false;
   if (generalNumber(step) !== null) return true;
 
   const generalDone = counts.answeredGeneralCount >= GENERAL_COUNT;
   switch (step) {
-    case "part1-done":
-    case "adjectives-intro":
     case "adjectives":
       return generalDone;
     case "review":
@@ -80,10 +83,12 @@ export function isStepReachable(step: string, counts: ProgressCounts): boolean {
  * 재접속 시 보여줄 위치. DB 의 current_step 은 오프라인 등으로 뒤처질 수 있으므로
  * 응답 기록을 기준으로 보정한다 (읽기 전용: DB 값은 바꾸지 않는다).
  * - general-N 이고 미응답 문항이 있으면 첫 미응답 문항
- * - general-N 이고 42개를 모두 응답했으면 part1-done
+ * - general-N 이고 42개를 모두 응답했으면 adjectives
+ * - 이전 안내 단계는 adjectives 로 정규화
  * - 그 밖의 단계는 그대로
  */
 export function resolveResumeStep(currentStep: string, answeredGeneralIds: Set<string>): string {
+  currentStep = normalizeStep(currentStep);
   if (generalNumber(currentStep) === null) return currentStep;
-  return firstUnansweredGeneral(answeredGeneralIds) ?? "part1-done";
+  return firstUnansweredGeneral(answeredGeneralIds) ?? "adjectives";
 }

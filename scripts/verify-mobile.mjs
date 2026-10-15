@@ -105,7 +105,7 @@ try {
     pass(`${width} failed save -> reload -> local restore -> reconnect`);
     // 자동 이동 대기 중 이전을 누르면 남은 타이머가 이전 이동을 덮어쓰지 않아야 한다.
     await textButton("예").click();
-    await textButton("← 뒤로").click();
+    await textButton(after ? "← 이전" : "← 뒤로").click();
     await page.waitForTimeout(400);
     await counter(4);
     await textButton("다음").click();
@@ -131,9 +131,13 @@ try {
       pass(`${width} slow save + changed answer retain latest value without blocking advance`);
     } else await answer(6);
     for (let n = 7; n <= 42; n++) await answer(n);
-    await page.getByRole("heading", { name: "일반성향 검사를 모두 마쳤습니다" }).waitFor();
-    await textButton("다음").click();
-    await textButton("시작하기").click();
+    if (!after) {
+      await page.getByRole("heading", { name: "일반성향 검사를 모두 마쳤습니다" }).waitFor();
+      await textButton("다음").click();
+      await textButton("시작하기").click();
+    } else {
+      await page.getByText("나를 잘 나타내는 말을 5개 이상 골라 주세요.", { exact: true }).waitFor();
+    }
     await shot("04-adjectives");
     if (after) {
       assert.equal(await page.locator('[class*="chips"]').evaluate((e) => getComputedStyle(e).gridTemplateColumns.split(" ").length), 2);
@@ -161,7 +165,7 @@ try {
     for (const q of questions.adjectives.slice(0, 5)) assert.equal(await textButton(q.text).getAttribute("aria-pressed"), "true");
     pass(`${width} all 30 adjectives reachable; minimum 4/5 and deselect/resume`);
     await textButton("다음").click();
-    await page.getByRole("heading", { name: "응답을 한 번 더 확인해 주세요" }).waitFor();
+    await page.getByRole("heading", { name: after ? "최종 제출" : "응답을 한 번 더 확인해 주세요" }).waitFor();
     await shot("05-review", true);
     if (after) {
       await page.getByText("일반성향 응답 확인·수정", { exact: true }).click();
@@ -192,11 +196,13 @@ try {
     if (after) { expected.g01 = false; expected.g06 = true; }
     for (const row of rows.filter((r) => r.item_id.startsWith("g"))) assert.equal(row.value, expected[row.item_id], row.item_id);
     await textButton("검사 제출하기").click();
-    await shot("05-confirm");
-    await textButton("아니요, 더 볼게요").click();
-    await textButton("검사 제출하기").click();
-    await textButton("네, 제출합니다").click();
-    await textButton("결과 보기").click();
+    if (!after) {
+      await shot("05-confirm");
+      await textButton("아니요, 더 볼게요").click();
+      await textButton("검사 제출하기").click();
+      await textButton("네, 제출합니다").click();
+      await textButton("결과 보기").click();
+    }
     await page.getByRole("heading", { name: `모바일${width}님의 검사 결과`, exact: true }).waitFor();
     await shot("06-result", true);
     const getResult = async () => {
@@ -221,7 +227,7 @@ try {
       assert.deepEqual(entry.jobs, [...new Set([...source.seniorJobs, ...source.generalJobs])].slice(0, 5));
     }
     pass(`${width} saved 42+5 answers -> score, ranking, recommendations regression`);
-    await textButton("A4 출력").click();
+    await textButton(after ? "PDF 저장 / 인쇄" : "A4 출력").click();
     await textButton("인쇄 / PDF 저장").waitFor();
     await shot("06-pdf-preview");
     await textButton("돌아가기").click();

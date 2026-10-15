@@ -11,10 +11,12 @@ import {
   isKnownStep,
   isStepReachable,
   nextStep,
+  normalizeStep,
   prevStep,
   resolveResumeStep,
 } from "@/lib/session/progress";
 import { isStepItem, type PendingItem } from "@/lib/session/saveQueue";
+import { CustomerNavigation } from "@/app/CustomerNavigation";
 import { ReviewScreen } from "./ReviewScreen";
 import styles from "./TestFlow.module.css";
 import { useResponseSaver } from "./useResponseSaver";
@@ -36,8 +38,8 @@ const ADVANCE_DELAY_MS = 300;
 
 function resolveInitialStep(currentStep: string, general: Record<string, boolean>, adjectives: string[]): string {
   const counts = { answeredGeneralCount: Object.keys(general).length, selectedAdjectiveCount: adjectives.length };
-  if (isKnownStep(currentStep) && isStepReachable(currentStep, counts)) return currentStep;
-  return firstUnansweredGeneral(new Set(Object.keys(general))) ?? "part1-done";
+  if (isKnownStep(currentStep) && isStepReachable(currentStep, counts)) return normalizeStep(currentStep);
+  return firstUnansweredGeneral(new Set(Object.keys(general))) ?? "adjectives";
 }
 
 export function TestFlow({
@@ -54,6 +56,8 @@ export function TestFlow({
   const [general, setGeneral] = useState<Record<string, boolean>>(initialGeneral);
   const [selected, setSelected] = useState<Set<string>>(() => new Set(initialAdjectives));
   const [editingGeneral, setEditingGeneral] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [leaving, setLeaving] = useState(false);
 
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const headingRef = useRef<HTMLHeadingElement | null>(null);
@@ -114,18 +118,30 @@ export function TestFlow({
     headingRef.current?.focus({ preventScroll: true });
   }, [step]);
 
+  const cancelAdvance = useCallback(() => {
+    if (advanceTimerRef.current !== null) {
+      clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = null;
+    }
+  }, []);
+
+  async function beforeLeave() {
+    cancelAdvance();
+    await saver.flush();
+    if (saver.pendingSize() > 0 || saver.sessionLost) {
+      throw new Error("응답을 저장하지 못했어요. 연결을 확인한 뒤 홈 또는 이용 종료를 다시 눌러 주세요. 화면을 닫지 말아 주세요.");
+    }
+  }
+
   const go = useCallback(
     (target: string | null) => {
       if (target === null) return;
-      if (advanceTimerRef.current !== null) {
-        clearTimeout(advanceTimerRef.current);
-        advanceTimerRef.current = null;
-      }
+      cancelAdvance();
       setStep(target);
       // 화면 위치는 응답과 같은 큐로 보낸다. 오프라인이어도 기기에 남아 다시 보낸다.
       saver.enqueueStep(target);
     },
-    [saver],
+    [saver, cancelAdvance],
   );
 
   /** 앞으로 갈 때 응답 개수 규칙을 확인한다. 못 가면 빠진 문항으로 보낸다. */
@@ -144,7 +160,7 @@ export function TestFlow({
     setGeneral(nextGeneral);
     saver.enqueue(id, value);
 
-    if (advanceTimerRef.current !== null) clearTimeout(advanceTimerRef.current);
+    cancelAdvance();
     // 확인 화면에서 수정할 때는 응답을 살펴본 뒤 직접 돌아간다.
     if (editingGeneral) return;
     advanceTimerRef.current = setTimeout(() => {
@@ -170,7 +186,7 @@ export function TestFlow({
 
   const counts = { answeredGeneralCount: answeredCount, selectedAdjectiveCount: selectedCount };
   const answeredIds = Object.keys(general);
-  const locked = saver.sessionLost;
+  const locked = saver.sessionLost || submitting || leaving;
 
   const generalTexts = new Map(generalQuestions.map((q) => [q.id, q.text]));
   const n = generalNumber(step);
@@ -182,19 +198,7 @@ export function TestFlow({
     const answered = answer !== undefined;
     screen = (
       <>
-        <header className={styles.header}>
-          <button
-            type="button"
-            className={styles.secondary}
-            onClick={() => go(prevStep(step))}
-            disabled={prevStep(step) === null}
-          >
-            ← 뒤로
-          </button>
-          <p className={styles.counter}>
-            일반성향 {n} / {GENERAL_COUNT}
-          </p>
-        </header>
+        <p className={styles.counter}>일반성향 {n} / {GENERAL_COUNT}</p>
         <div
           className={styles.progress}
           role="progressbar"
@@ -252,48 +256,12 @@ export function TestFlow({
         </div>
       </>
     );
-  } else if (step === "part1-done") {
-    screen = (
-      <>
-        <div className={styles.centerArea}>
-          <h1 className={styles.title} tabIndex={-1} ref={headingRef}>
-            일반성향 검사를 모두 마쳤습니다
-          </h1>
-        </div>
-        <div className={styles.footer}>
-          <button type="button" className={styles.primary} onClick={() => goForward("adjectives-intro", counts, answeredIds)}>
-            다음
-          </button>
-          <button type="button" className={styles.secondary} onClick={() => go(prevStep(step))}>
-            ← 이전 문항 보기
-          </button>
-        </div>
-      </>
-    );
-  } else if (step === "adjectives-intro") {
-    screen = (
-      <>
-        <div className={styles.centerArea}>
-          <h1 className={styles.title} tabIndex={-1} ref={headingRef}>
-            나에게 어울리는 말을 골라 주세요.
-          </h1>
-          <p className={styles.body}>최소 5개 이상 골라야 다음으로 갈 수 있어요.</p>
-        </div>
-        <div className={styles.footer}>
-          <button type="button" className={styles.primary} onClick={() => goForward("adjectives", counts, answeredIds)}>
-            시작하기
-          </button>
-          <button type="button" className={styles.secondary} onClick={() => go(prevStep(step))}>
-            ← 이전
-          </button>
-        </div>
-      </>
-    );
   } else if (step === "adjectives") {
     const enough = selectedCount >= MIN_ADJECTIVE_SELECTIONS;
     screen = (
       <>
         <header className={styles.adjectivesHeader}>
+          <p className={styles.body}>나를 잘 나타내는 말을 5개 이상 골라 주세요.</p>
           <h1 className={styles.title} tabIndex={-1} ref={headingRef}>
             선택 {selectedCount}개 (최소 {MIN_ADJECTIVE_SELECTIONS}개)
           </h1>
@@ -327,9 +295,6 @@ export function TestFlow({
           >
             다음
           </button>
-          <button type="button" className={styles.secondary} onClick={() => go(prevStep(step))}>
-            ← 이전
-          </button>
         </div>
       </>
     );
@@ -348,7 +313,7 @@ export function TestFlow({
         }}
         onGoToFirstUnanswered={() => go(firstUnansweredGeneral(new Set(answeredIds)))}
         onGoToAdjectives={() => goForward("adjectives", counts, answeredIds)}
-        onBack={() => go(prevStep(step))}
+        onBusyChange={setSubmitting}
         drainQueue={async () => {
           await saver.flush();
           return saver.pendingSize();
@@ -359,6 +324,17 @@ export function TestFlow({
 
   return (
     <main className={styles.main}>
+      <CustomerNavigation
+        canEnd
+        cancelAdvance={cancelAdvance}
+        beforeLeave={beforeLeave}
+        disabled={saver.sessionLost || submitting}
+        onBusyChange={setLeaving}
+        onPrevious={prevStep(step) === null ? undefined : () => {
+          setEditingGeneral(false);
+          go(prevStep(step));
+        }}
+      />
       <div className={styles.status}>
         <div aria-live="polite">
           {saver.failed && (
