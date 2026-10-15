@@ -8,8 +8,6 @@ import styles from "./result.module.css";
 type Props = {
   view: ResultView;
   mode: "mobile" | "print";
-  /** mobile 의 [A4 출력] 버튼. 데이터는 props 로만 받고 fetch 하지 않는다. */
-  onPrintPreview?: () => void;
 };
 
 // 서버와 브라우저가 같은 결과를 내도록 시간대를 고정한다.
@@ -142,7 +140,7 @@ function PrintScoreTable({ view }: { view: ResultView }) {
   );
 }
 
-function MobileLayout({ view, onPrintPreview }: Pick<Props, "view" | "onPrintPreview">) {
+function MobileLayout({ view }: Pick<Props, "view">) {
   return (
     <article className={styles.mobile}>
       <header className={styles.mHeader}>
@@ -180,9 +178,6 @@ function MobileLayout({ view, onPrintPreview }: Pick<Props, "view" | "onPrintPre
       </section>
 
       <div className={styles.mFooter}>
-        <button type="button" className={styles.printButton} onClick={onPrintPreview}>
-          PDF 저장 / 인쇄
-        </button>
         <Link href="/" className={styles.backButton}>홈으로</Link>
       </div>
     </article>
@@ -228,9 +223,9 @@ function PrintLayout({ view }: { view: ResultView }) {
   );
 }
 
-export function ResultScreen({ view, mode, onPrintPreview }: Props) {
+export function ResultScreen({ view, mode }: Props) {
   return mode === "mobile" ? (
-    <MobileLayout view={view} onPrintPreview={onPrintPreview} />
+    <MobileLayout view={view} />
   ) : (
     <PrintLayout view={view} />
   );

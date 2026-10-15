@@ -6,7 +6,7 @@
 // 하는 일 (테스트 전용 과정 1개와 그 아래 자료를 만들고 끝나면 지운다. 고객 데이터는 건드리지 않는다)
 //   1. 상세 URL 접근 제한 (인증 없음, 고객 쿠키만, 만료, 변조)
 //   2. 동명 세션 구분, 완료·미완료·결과 누락·결과 손상·없는 세션·잘못된 ID 안내
-//   3. 실제 고객 흐름(응답 저장→제출)으로 만든 결과가 고객 결과 화면과 관리자 상세에서 글자 단위로 같은지
+//   3. 실제 고객 흐름으로 만든 전체 결과 내용은 같고 출력은 관리자에게만 제공되는지
 //   4. Chrome 으로 인쇄 미디어를 켜고, 1·2순위 30가지 조합 모두에서 A4 한 장에 잘림이 없는지 측정
 //      (Chrome 을 찾지 못하면 4번은 "미검증"으로 표시하고 실패로 처리한다)
 
@@ -273,7 +273,7 @@ try {
   });
 
   // 3. 실제 고객 흐름으로 만든 결과가 고객 화면과 관리자 상세에서 같은지
-  await check("3. 고객 결과 화면과 관리자 상세의 결과지 내용이 글자 단위로 일치", async () => {
+  await check("3. 고객 웹 결과와 관리자 출력의 전체 내용 일치·고객 출력 제한", async () => {
     const post = (path, body, cookie) => fetch(`${CUSTOMER_BASE}${path}`, {
       method: "POST", headers: { Origin: CUSTOMER_BASE, "Content-Type": "application/json", ...(cookie ? { Cookie: cookie } : {}) }, body: JSON.stringify(body),
     });
@@ -294,15 +294,25 @@ try {
 
     const customerHtml = await (await fetch(`${CUSTOMER_BASE}/c/${ctx.courseCode}/result`, { redirect: "manual", headers: { cookie: customerCookie } })).text();
     const adminHtml = await (await page(`/admin/results/${id}`, adminCookie)).text();
-    const customerSheet = sheetText(customerHtml);
+    const customerText = textOf(customerHtml);
     const adminSheet = sheetText(adminHtml);
-    assert.equal(adminSheet, customerSheet, "고객과 관리자의 결과지 글자가 다름");
-    // 관리자 화면은 같은 결과의 모바일 화면(고객 전용)이나 [A4 출력] 버튼 없이 결과지만 보여준다.
-    assert(!markupOf(adminHtml).includes("A4 출력"));
-    assert(customerSheet.includes("예술형") && customerSheet.includes("탐구형"));
-    // 고객 쿠키로는 같은 세션의 관리자 상세에 접근할 수 없다.
+    const result = unwrap(await db.from("results").select("*").eq("session_id", id).single());
+    const expected = ["예술형", "탐구형", ...result.job_recommendations.flatMap((entry) => entry.jobs)];
+    for (const type of [result.top1, result.top2]) {
+      const section = interpretations.types[type];
+      for (const key of ["nameKo", "nameEn", "subtitle", "interest", "value", "preferredActivity", "avoidedActivity", "aptitude", "selfEvaluation", "personality", "othersEvaluation"]) expected.push(section[key]);
+    }
+    for (const text of expected) {
+      assert(customerText.includes(text), "고객 결과 내용 누락: " + text);
+      assert(adminSheet.includes(text), "관리자 결과 내용 누락: " + text);
+    }
+    assert(!markupOf(customerHtml).includes("data-print-sheet"));
+    assert(!/PDF|인쇄|A4/.test(customerText));
+    assert(!markupOf(adminHtml).includes("님의 검사 결과"));
+    // A real submitted customer cookie cannot access the same session's admin print page.
     assert.equal((await page(`/admin/results/${id}`, customerCookie)).status, 307);
-    return `결과지 ${customerSheet.length}자 동일 (1순위 예술형, 2순위 탐구형)`;
+    return `동일 결과의 해석·추천직업 ${expected.length}개 확인, 고객 A4 없음, 관리자 출력 유지`;
+
   });
 
   // 4. 실제 Chrome 인쇄 측정

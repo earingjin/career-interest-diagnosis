@@ -227,14 +227,23 @@ try {
       assert.deepEqual(entry.jobs, [...new Set([...source.seniorJobs, ...source.generalJobs])].slice(0, 5));
     }
     pass(`${width} saved 42+5 answers -> score, ranking, recommendations regression`);
-    await textButton(after ? "PDF 저장 / 인쇄" : "A4 출력").click();
-    await textButton("인쇄 / PDF 저장").waitFor();
-    await shot("06-pdf-preview");
-    await textButton("돌아가기").click();
+    if (after) {
+      assert.equal(await page.getByRole("button", { name: /PDF|인쇄|A4|미리보기/ }).count(), 0);
+      assert.equal(await page.locator('[data-print-sheet], [data-preview], a[download]').count(), 0);
+      assert.doesNotMatch(await page.locator("body").innerText(), /PDF|인쇄|A4/);
+      await textButton("홈으로").waitFor();
+      await textButton("이용 종료").waitFor();
+      pass(`${width} full customer result without PDF/print/A4 controls or hidden sheet`);
+    } else {
+      await textButton("A4 출력").click();
+      await textButton("인쇄 / PDF 저장").waitFor();
+      await shot("06-pdf-preview");
+      await textButton("돌아가기").click();
+    }
     await page.reload();
     assert.deepEqual(await getResult(), result);
     assert.deepEqual(errors, []);
-    pass(`${width} preview/return/reload keep stored result unchanged; no JS errors`);
+    pass(`${width} result reload keeps stored result unchanged; no JS errors`);
     await context.close();
   }
 } finally {

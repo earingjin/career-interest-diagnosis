@@ -13,6 +13,7 @@ vi.mock("next/link", () => ({
 
 import { AdminResultSheet } from "@/app/admin/results/[sessionId]/AdminResultSheet";
 import { ResultScreen } from "@/app/c/[courseCode]/result/ResultScreen";
+import { ResultClient } from "@/app/c/[courseCode]/result/ResultClient";
 
 const scores = { R: 0, I: 0, A: 0, S: 7, E: 6, C: 0 };
 const view = buildResultView({
@@ -81,7 +82,7 @@ describe("관리자 상세 화면: 인쇄에서 제외되는 UI", () => {
   });
 });
 
-describe("관리자 상세 화면: A4 설정 (고객 결과 화면과 같은 결과지)", () => {
+describe("관리자 상세 화면: 공유 A4 결과지 유지", () => {
   it("@page A4 를 이 페이지에 직접 넣는다", () => {
     expect(html).toContain("@page { size: A4; margin: 0; }");
   });
@@ -101,14 +102,41 @@ describe("관리자 상세 화면: A4 설정 (고객 결과 화면과 같은 결
     expect(printBlock).toMatch(/\.previewFrame\s*{[^}]*width:\s*210mm\s*!important/);
   });
 
-  it("결과지는 고객 화면의 같은 컴포넌트(mode=print)와 동일한 내용이다", () => {
-    const customerPrint = renderToStaticMarkup(<ResultScreen view={view} mode="print" />);
-    expect(html).toContain(customerPrint);
+  it("결과지는 기존 공유 컴포넌트(mode=print)와 동일한 내용이다", () => {
+    const sharedPrint = renderToStaticMarkup(<ResultScreen view={view} mode="print" />);
+    expect(html).toContain(sharedPrint);
   });
 
   it("점수·해설·추천직업이 결과지에 모두 나온다", () => {
     for (const text of ["홍길동", "테스트 과정", "사회형", "진취형", "나의 흥미", "나의 성향", "가정봉사원", "매장감시원", "기관명 · 문의처 자리"]) {
       expect(sheetPart, text).toContain(text);
     }
+  });
+});
+
+describe("고객 결과: 전체 웹 결과만 제공", () => {
+  const customerHtml = renderToStaticMarkup(<ResultClient view={view} />);
+
+  it("상위 두 유형의 모든 해석·추천직업과 6개 유형 점수·그래프를 유지한다", () => {
+    expect(customerHtml).toContain("홍길동님의 검사 결과");
+    expect(customerHtml).toContain("유형별 점수 그래프");
+    expect(customerHtml).toContain("<svg");
+    expect((customerHtml.match(/data-score-row=/g) ?? []).length).toBe(6);
+    for (const row of view.totals) {
+      expect(customerHtml).toContain(`data-score-row="${row.type}"`);
+      expect(customerHtml).toContain(`>${row.total}점<`);
+    }
+    for (const section of [view.top1, view.top2]) {
+      for (const text of [section.nameKo, ...section.jobs, ...section.groups.flatMap((group) => [group.title, ...group.items.map((item) => item.text)])]) {
+        expect(customerHtml).toContain(renderToStaticMarkup(<>{text}</>));
+      }
+    }
+  });
+
+  it("홈·이용 종료는 유지하고 출력 버튼·숨겨진 A4·다운로드 링크·A4 페이지 설정을 제거한다", () => {
+    expect(customerHtml).toContain('href="/"');
+    expect(customerHtml).toContain("홈으로");
+    expect(customerHtml).toContain("이용 종료");
+    expect(customerHtml).not.toMatch(/PDF|인쇄|A4|미리보기|@page|data-print-sheet|data-preview|download=/);
   });
 });

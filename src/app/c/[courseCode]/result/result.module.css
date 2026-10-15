@@ -1,4 +1,4 @@
-/* 결과 화면: 모바일(mobile)과 A4 결과지(print)가 같은 컴포넌트를 쓴다. */
+/* 고객 웹 결과와 관리자 A4 결과지의 공통 스타일. */
 
 .root {
   --bg-accent: #cfe0ff;
@@ -23,15 +23,7 @@
 }
 
 /* ===== 화면에서 무엇이 보이는지 ===== */
-.mobileArea {
-  display: block;
-}
-
 .printArea {
-  display: none;
-}
-
-.root[data-preview="true"] .mobileArea {
   display: none;
 }
 
@@ -230,7 +222,6 @@
   flex-direction: column;
 }
 
-.printButton,
 .backButton {
   min-height: 56px;
   padding: 0 1.25rem;
@@ -241,48 +232,18 @@
   border-radius: 0.5rem;
 }
 
-.printButton {
-  color: #ffffff;
-  background: #1a56db;
-  border: 0;
-}
-
 .backButton {
   color: var(--text);
   background: #ffffff;
   border: 2px solid #767676;
 }
 
-.printButton:focus-visible,
 .backButton:focus-visible {
   outline: 3px solid #171717;
   outline-offset: 2px;
 }
 
-/* ===== A4 미리보기 (화면) ===== */
-.previewBar {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 0.75rem 1.25rem;
-  background: #ffffff;
-  border-bottom: 1px solid var(--line);
-}
-
-.previewHint {
-  font-size: 1rem;
-  color: var(--muted);
-}
-
-.previewButtons {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-}
-
+/* ===== 관리자 A4 미리보기 (화면) ===== */
 .printArea {
   background: #e5e7eb;
 }
@@ -487,12 +448,6 @@
     margin: 0;
     padding: 0;
     background: #ffffff;
-  }
-
-  /* 모바일 화면과 버튼은 숨기고 A4 결과지만 보이게 한다. */
-  .mobileArea,
-  .previewBar {
-    display: none !important;
   }
 
   .printArea {

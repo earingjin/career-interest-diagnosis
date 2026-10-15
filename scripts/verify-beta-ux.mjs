@@ -1,4 +1,5 @@
-// Real Chromium + existing APIs/DB. Only random, non-default test courses are created/deleted.
+// Real Chromium + existing APIs/DB, including customer output restrictions.
+// Only random, non-default test courses are created/deleted.
 // node --env-file=.env.local scripts/verify-beta-ux.mjs
 // Requires playwright (or PLAYWRIGHT_MODULE pointing to an existing playwright installation).
 import assert from "node:assert/strict";
@@ -209,23 +210,48 @@ try {
     await layout(`result-${width}`);
     assert.equal(await page.getByRole("button", { name: "홈으로", exact: true }).count(), 1);
     assert.equal(await page.getByRole("button", { name: "← 이전", exact: true }).count(), 0);
-    await page.getByRole("button", { name: "PDF 저장 / 인쇄", exact: true }).click();
-    await page.getByRole("button", { name: "돌아가기", exact: true }).waitFor();
-    await layout(`preview-${width}`);
-    if (width === 390) await page.pdf({ path: `${output}/result.pdf`, format: "A4", printBackground: true, preferCSSPageSize: true });
-    await page.getByRole("button", { name: "돌아가기", exact: true }).click();
+    assert.equal(await page.getByRole("button", { name: /PDF|인쇄|A4|미리보기/ }).count(), 0);
+    assert.equal(await page.locator('[data-print-sheet], [data-preview], a[download]').count(), 0);
+    assert.doesNotMatch(await page.locator("body").innerText(), /PDF|인쇄|A4/);
   }
   await page.getByRole("link", { name: "홈으로", exact: true }).click();
   await page.waitForURL(base + "/");
   await page.goBack();
   await page.getByRole("heading", { name: `${nickname}님의 검사 결과` }).waitFor();
   assert.deepEqual(must(await db.from("results").select("*").eq("session_id", firstSession.id).single()), resultBefore);
-  check("result home + browser back; A4 preview return; PDF output; result row unchanged");
+  check("full web result only; no PDF/print/hidden A4; home + browser back preserve result");
+
+  // Browser-native printing is outside the service restriction; do not blank the web result.
+  await page.emulateMedia({ media: "print" });
+  assert.ok(await page.getByRole("heading", { name: nickname + "님의 검사 결과" }).isVisible());
+  assert.equal(await page.locator('[data-print-sheet]').count(), 0);
+  await page.emulateMedia({ media: "screen" });
+
+  for (const path of [entry + "/result/print", entry + "/result/pdf", entry + "/result/preview", "/api/session/pdf", "/api/session/print"]) {
+    const response = await context.request.get(base + path);
+    assert.equal(response.status(), 404, path);
+  }
+  for (const query of ["?print=1", "?mode=print", "?preview=true", "?download=pdf"]) {
+    await page.goto(base + entry + "/result" + query);
+    await page.getByRole("heading", { name: nickname + "님의 검사 결과" }).waitFor();
+    assert.equal(await page.locator('[data-print-sheet], [data-preview], a[download]').count(), 0);
+    assert.equal(await page.getByRole("button", { name: /PDF|인쇄|A4|미리보기/ }).count(), 0);
+  }
+  await page.goto(base + entry + "/result");
+  await page.getByRole("heading", { name: nickname + "님의 검사 결과" }).waitFor();
+  for (const path of ["/admin/results","/admin/results/" + firstSession.id, "/admin/results/" + firstSession.id + "?print=1"]) {
+    const response = await context.request.get(base + path, { maxRedirects: 0 });
+    assert.equal(response.status(), 307);
+    assert.equal(new URL(response.headers().location, base).pathname, "/admin/login");
+    assert.ok(!(await response.text()).includes("data-print-sheet"));
+  }
+  check("customer output URLs/APIs return 404; query flags cannot enable output; customer cookie cannot use admin output");
 
   const submittedToken = await token();
   await page.route("**/api/session/logout", (route) => route.abort());
   await page.getByRole("button", { name: "이용 종료", exact: true }).click();
-  await page.getByText(/이 기기에서도 결과를 다시 열 수 없어요/).waitFor();
+  await page.getByText("이용을 종료하면 진단 결과를 다시 확인할 수 없습니다. 결과를 충분히 확인한 뒤 종료해 주세요.", { exact: true }).waitFor();
+  assert.doesNotMatch(await page.locator("body").innerText(), /PDF|인쇄|A4/);
   await page.getByRole("button", { name: "저장하고 이용 종료" }).click();
   await page.getByRole("alert").waitFor();
   assert.equal(await token(), submittedToken);

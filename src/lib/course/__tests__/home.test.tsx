@@ -79,9 +79,14 @@ describe("홈 화면: 내용과 제외 항목", () => {
   it("서비스 소개의 제목과 핵심 안내가 있다", () => {
     expect(html).toContain("<h1");
     expect(text).toContain("나에게 맞는 직업 흥미를");
-    for (const phrase of ["이런 진단이에요", "진행 방법", "시작하기 전에", "42개", "5개 이상", "6가지 흥미 유형", "PDF"]) {
+    for (const phrase of ["이런 진단이에요", "진행 방법", "시작하기 전에", "42개", "5개 이상", "6가지 흥미 유형", "전체 결과를 웹 화면에서 확인"]) {
       expect(text, phrase).toContain(phrase);
     }
+  });
+
+  it("고객에게 PDF 저장·인쇄를 안내하지 않는다", () => {
+    expect(text).not.toMatch(/PDF|인쇄|A4/);
+    expect(text).toContain("충분히 확인한 뒤 종료해 주세요");
   });
 
   it("QR 코드 안내, 과정 선택 UI, 관리자 링크·로그인이 없다", () => {

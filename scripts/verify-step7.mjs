@@ -255,22 +255,16 @@ async function main() {
       `redirect ${other.redirect}, 닉네임 포함 ${other.markup.includes(nickname)}, 1순위명 포함 ${other.markup.includes(top1Name)}`,
     );
 
-    // r6. 인쇄 스타일: HTML 에 @page 와 A4, 연결된 CSS 에 print-color-adjust
-    const stylesheetUrls = [...page.html.matchAll(/<link[^>]+rel="stylesheet"[^>]+href="([^"]+)"/g)].map((m) => m[1]);
-    let css = "";
-    for (const href of stylesheetUrls) {
-      const res = await fetch(new URL(href, BASE), { signal: AbortSignal.timeout(20000) });
-      css += await res.text();
-    }
-    const printCssOk = css.includes("print-color-adjust") && css.includes("@media print");
+    // r6. 고객 결과에는 출력 UI, 숨겨진 A4 결과지, A4 페이지 설정이 없다.
     check(
-      page.html.includes("@page") && page.html.includes("A4") && printCssOk,
-      "r6. 인쇄 스타일 포함",
-      `HTML 에 @page, A4 / 연결된 CSS ${stylesheetUrls.length}개에 @media print, print-color-adjust`,
-      `@page ${page.html.includes("@page")}, A4 ${page.html.includes("A4")}, CSS(@media print·print-color-adjust) ${printCssOk}`,
+      !page.markup.includes("data-print-sheet") && !page.markup.includes("@page") &&
+        !/PDF|인쇄|A4/.test(page.markup.replace(/<[^>]+>/g, " ")),
+      "r6. 고객 출력 기능 제거",
+      "전체 웹 결과만 제공하며 PDF/인쇄/A4 UI와 출력용 마크업 없음",
+      "고객 결과에 출력 기능이 남아 있음",
     );
 
-    // r7. 점수표: 6개 유형이 모바일·인쇄 각각 한 번씩, 1·2순위만 강조
+    // r7. 점수표: 6개 유형이 웹 화면에 한 번씩, 1·2순위만 강조
     const rows = [...page.markup.matchAll(/data-score-row="([RIASEC])"[^>]*?data-emphasized="(true|false)"/g)].map(
       (m) => ({ type: m[1], emphasized: m[2] === "true" }),
     );
@@ -278,30 +272,29 @@ async function main() {
     const emphasizedTypes = [...new Set(rows.filter((r) => r.emphasized).map((r) => r.type))].sort();
     const expectedEmphasized = [resultBefore.top1, resultBefore.top2].sort();
     check(
-      TYPES.every((t) => perType[t] === 2) &&
-        rows.filter((r) => r.emphasized).length === 4 &&
+      TYPES.every((t) => perType[t] === 1) &&
+        rows.filter((r) => r.emphasized).length === 2 &&
         emphasizedTypes.join() === expectedEmphasized.join(),
       "r7. 점수표와 강조",
-      `6개 유형 × (모바일 1 + 인쇄 1), 강조 ${emphasizedTypes.join("·")} 만`,
+      `6개 유형 × 웹 화면 1회, 강조 ${emphasizedTypes.join("·")} 만`,
       `유형별 행 수 ${JSON.stringify(perType)}, 강조 ${JSON.stringify(emphasizedTypes)} (기대 ${expectedEmphasized.join("·")})`,
     );
 
-    // r8. 추천직업 10개: 모바일 1회 + 인쇄 1회씩
+    // r8. 추천직업 10개: 웹 화면 1회씩
     const jobCounts = jobs.map((job) => [job, count(page.markup, `>${job}<`)]);
     check(
-      jobs.length === 10 && jobCounts.every(([, n]) => n === 2),
+      jobs.length === 10 && jobCounts.every(([, n]) => n === 1),
       "r8. 추천직업 표시",
-      `${jobs.length}개 모두 모바일·인쇄에 한 번씩 (${jobs.join(", ")})`,
+      `${jobs.length}개 모두 웹 화면에 한 번씩 (${jobs.join(", ")})`,
       `직업 ${jobs.length}개, 표시 횟수: ${JSON.stringify(jobCounts)}`,
     );
 
-    // r9. 해설 묶음 제목. 1순위·2순위 해설이 모바일과 인쇄에 각각 있으므로 제목당 4회다.
-    //     (명세는 2회였지만 한 화면에 1순위와 2순위 해설이 함께 있어 4 = 유형 2 × 화면 2 가 맞다.)
+    // r9. 해설 묶음 제목은 웹 화면의 1·2순위 해설에 각각 한 번, 합계 2회다.
     const titleCounts = GROUP_TITLES.map((title) => [title, count(page.markup, `>${title}<`)]);
     check(
-      titleCounts.every(([, n]) => n === 4),
+      titleCounts.every(([, n]) => n === 2),
       "r9. 해설 묶음 제목",
-      `${GROUP_TITLES.join(", ")} 각 4회 (1·2순위 × 모바일·인쇄)`,
+      `${GROUP_TITLES.join(", ")} 각 2회 (1·2순위 × 웹 화면)`,
       JSON.stringify(titleCounts),
     );
 

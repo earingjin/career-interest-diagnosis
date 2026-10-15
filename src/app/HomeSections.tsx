@@ -78,7 +78,7 @@ export function Intro({ hero, footer }: { hero: React.ReactNode; footer: React.R
           <ul className={styles.notes}>
             <li>일반성향 42개 문항 · 형용사 30개 중 5개 이상 선택</li>
             <li>6가지 흥미 유형 중 나의 1·2순위와 추천직업 제공</li>
-            <li>결과지 PDF 저장 및 A4 인쇄</li>
+            <li>전체 결과를 웹 화면에서 확인</li>
           </ul>
           <details className={styles.details}>
             <summary>진행 방법 · 시작하기 전에</summary>
@@ -86,7 +86,7 @@ export function Intro({ hero, footer }: { hero: React.ReactNode; footer: React.R
               <li>닉네임과 휴대폰 뒷자리 4자리 입력 후 개인정보 수집에 동의해요.</li>
               <li>평소의 나를 떠올리며 솔직하게 답해 주세요. 답은 자동으로 저장돼요.</li>
               <li>최종 제출 전에 응답을 수정할 수 있어요. 제출 후에는 바꿀 수 없어요.</li>
-              <li>결과는 처음 진단한 기기에서 확인할 수 있어요. 이용 종료 후에는 결과를 다시 열 수 없으니 먼저 PDF로 저장해 주세요.</li>
+              <li>결과는 처음 진단한 기기에서 확인할 수 있어요. 이용 종료 후에는 결과를 다시 열 수 없으니 충분히 확인한 뒤 종료해 주세요.</li>
               <li>결과는 직업을 생각해 볼 때 참고하는 자료예요.</li>
             </ol>
           </details>
