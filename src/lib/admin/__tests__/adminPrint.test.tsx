@@ -80,7 +80,7 @@ describe("관리자 상세 화면: 인쇄에서 제외되는 UI", () => {
   });
 
   it("관리자 화면에는 모바일 결과 레이아웃이 없고 A4 결과지만 있다", () => {
-    expect(html).toContain("직업선호도 검사 결과");
+    expect(html).toContain("나의 직업흥미 결과"); // A4 1쪽 제목
     expect(html).toContain('data-print-sheet="true"');
     expect(html).not.toContain("님의 검사 결과"); // 모바일 제목
   });
@@ -123,8 +123,14 @@ describe("관리자 상세 화면: 공유 A4 결과지 유지", () => {
     expect(html).toContain(sharedPrint);
   });
 
+  it("결과지 머리에는 성명과 검사일만 있고 과정명은 나오지 않는다", () => {
+    expect(sheetPart).toContain("성명: 홍길동");
+    expect(sheetPart).toContain("검사일: 2026년 10월 14일");
+    expect(sheetPart).not.toContain("테스트 과정");
+  });
+
   it("점수·해설·추천직업이 결과지에 모두 나온다", () => {
-    for (const text of ["홍길동", "테스트 과정", "사회형", "진취형", "나의 직업흥미 특성", "경력 활용과 진로 탐색", "가정봉사원", "매장감시원", "기관명 · 문의처 자리"]) {
+    for (const text of ["홍길동", "사회형", "진취형", "나의 직업흥미 특성", "경력 활용과 진로 탐색", "가정봉사원", "매장감시원", "기관명 · 문의처 자리"]) {
       expect(sheetPart, text).toContain(text);
     }
   });
@@ -231,8 +237,8 @@ describe("A4 두 장: 페이지별 내용", () => {
 
   it("정확히 두 장이고 각 장에 제목과 쪽 번호, 기관명·문의처가 있다", () => {
     expect((print.match(/data-print-page=/g) ?? []).length).toBe(2);
+    expect(page1).toContain("직업흥미 탐색 진단");
     expect(page1).toContain("나의 직업흥미 결과");
-    expect(page1).toContain("직업선호도 검사 결과");
     expect(page2).toContain("나의 직업흥미 상세 해설");
     expect(page1).toContain(">1 / 2<");
     expect(page2).toContain(">2 / 2<");
@@ -270,13 +276,13 @@ describe("A4 두 장: 페이지별 내용", () => {
     expect(rows.slice(0, 2).map((m) => m[1])).toEqual(["S", "E"]);
   });
 
-  it("2페이지: 1·2순위 띠와 조합 상세 해석이 있고 종합 해석·공통 안내를 반복하지 않는다", () => {
+  it("2페이지: 조합 상세 해석 → 1순위 띠 → 2순위 띠 순서이고 종합 해석·공통 안내를 반복하지 않는다", () => {
     for (const section of [view.top1, view.top2]) {
       const texts = [section.keywords, ...section.jobs, ...section.groups.flatMap((g) => [...(g.id === "jobs" ? [] : [g.title]), ...g.items.map((i) => i.text)])];
       for (const text of texts) expect(page2, text).toContain(escaped(text));
     }
     expect(page2.indexOf(escaped(view.top1.keywords))).toBeLessThan(page2.indexOf(escaped(view.top2.keywords)));
-    const order = ['aria-label="1순위 상세 해설"', 'aria-label="2순위 상세 해설"', 'aria-label="나의 직업흥미 상세 해석"', "기관명 · 문의처 자리"].map((m) => page2.indexOf(m));
+    const order = ['aria-label="나의 직업흥미 상세 해석"', 'aria-label="1순위 상세 해설"', 'aria-label="2순위 상세 해설"', "기관명 · 문의처 자리"].map((m) => page2.indexOf(m));
     expect(order.every((index) => index >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     for (const text of detailTexts) expect(page2, text).toContain(escaped(text));
@@ -295,13 +301,20 @@ describe("A4 두 장: 페이지별 내용", () => {
 describe("모바일 결과: 세로 배치 순서", () => {
   const mobile = renderToStaticMarkup(<ResultScreen view={view} mode="mobile" />);
 
-  it("기본정보 → 그래프 → 1·2순위 요약 → 종합 해석 → 상세 해석 → 점수표 → 안내 → 1순위 → 2순위 상세 해설", () => {
+  it("기본정보 → 그래프 → 1·2순위 요약 → 종합 해석 → 상세 해석 → 점수표(접힘) → 1순위 → 2순위 상세 해설 → 안내", () => {
     const order = [
       "홍길동님의 검사 결과", "유형별 점수 그래프", 'aria-label="1순위와 2순위 요약"', "나의 직업흥미 종합 해석",
-      'aria-label="나의 직업흥미 상세 해석"', "전체 점수표", "결과를 볼 때 알아 두세요", 'aria-label="1순위 상세 해설"', 'aria-label="2순위 상세 해설"',
+      'aria-label="나의 직업흥미 상세 해석"', "<details", 'aria-label="1순위 상세 해설"', 'aria-label="2순위 상세 해설"', "결과를 볼 때 알아 두세요",
     ].map((marker) => mobile.indexOf(marker));
     expect(order.every((index) => index >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     expect(mobile).not.toContain("data-print-page");
+  });
+
+  it("전체 점수표는 접히는 영역 안에 6개 유형이 모두 있고 공통 안내는 한 번만 나온다", () => {
+    const details = mobile.slice(mobile.indexOf("<details"), mobile.indexOf("</details>"));
+    expect(details).toContain('aria-label="전체 점수표"');
+    expect((details.match(/data-score-row=/g) ?? []).length).toBe(6);
+    expect(mobile.split(">결과를 볼 때 알아 두세요<").length - 1).toBe(1);
   });
 });

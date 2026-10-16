@@ -30,27 +30,18 @@ const TYPES = ["R", "I", "A", "S", "E", "C"];
 const NICKNAME = "가나다라마바사아자차"; // 닉네임 최대 길이(10자)
 const OUTPUT = "scratch/sheet-fill";
 const SCREENSHOT_PAIRS = (process.env.SHEET_SCREENSHOTS ?? "SE,CI,RA").split(",").filter(Boolean);
-const interpretations = JSON.parse(readFileSync(new URL("../src/content/interpretations.json", import.meta.url), "utf8"));
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const pairs = [];
 for (const t1 of TYPES) for (const t2 of TYPES) if (t1 !== t2) pairs.push(`${t1}${t2}`);
 const idOf = (pair) => `00000000-0000-4000-8000-${String(pairs.indexOf(pair) + 1).padStart(12, "0")}`;
 
-/** selectJobs 와 같은 규칙(고령자 목록 먼저, 이름 중복 제거, 유형당 5개). */
+const jobGolden = JSON.parse(readFileSync(new URL("../src/lib/scoring/__tests__/__fixtures__/jobs-30.json", import.meta.url), "utf8"));
+/** 1·2순위 조합의 추천직업. 앱의 selectJobs 결과를 담은 골든 파일(jobCatalog.test.ts 가 앱 로직과 일치함을 검증)을 그대로 쓴다. */
 function jobsFor(top1, top2) {
-  const used = new Set();
-  return [top1, top2].map((type) => {
-    const jobs = [];
-    for (const raw of [...interpretations.types[type].seniorJobs, ...interpretations.types[type].generalJobs]) {
-      const name = raw.trim();
-      if (jobs.length >= 5) break;
-      if (name === "" || used.has(name)) continue;
-      used.add(name);
-      jobs.push(name);
-    }
-    return { type, jobs, count: jobs.length };
-  });
+  const recs = jobGolden[top1 + top2];
+  if (!recs) throw new Error("골든 파일에 없는 조합: " + top1 + top2);
+  return structuredClone(recs);
 }
 
 function sessionRow(pair) {
@@ -288,7 +279,7 @@ try {
     await delay(200);
     const m = await evaluate(MEASURE);
     // 영역을 늘리지 않았을 때의 여유 높이(=늘려서 흡수한 높이). 바닥글이 올라가므로 바닥글 아래 남는 높이로 잰다.
-    await evaluate("(() => { const s = document.createElement('style'); s.id = 'natural'; s.textContent = '[data-print-page] * { flex-grow: 0 !important; flex-shrink: 0 !important; }'; document.head.append(s); return true; })()");
+    await evaluate("(() => { const s = document.createElement('style'); s.id = 'natural'; s.textContent = '[data-print-page] * { flex-grow: 0 !important; }'; document.head.append(s); return true; })()");
     const natural = await evaluate(MEASURE);
     await evaluate("document.getElementById('natural').remove(); true");
     m.pages.forEach((page, i) => { page.naturalSlack = natural.pages[i].footerSlack; });

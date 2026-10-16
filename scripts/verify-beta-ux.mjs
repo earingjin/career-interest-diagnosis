@@ -26,11 +26,15 @@ const markersFor = (type) => narrativeFields.map((field) => interpretations.type
 const decodeUnicode = (text) => text.replace(/\\u([0-9a-f]{4})/gi, (_, code) => String.fromCharCode(parseInt(code, 16)));
 const combinedInterpretations = JSON.parse(await readFile(new URL("../src/content/combined-interpretations.json", import.meta.url), "utf8"));
 const combinedMarkers = (key) => Object.values(combinedInterpretations.combinations[key]);
-/** 제출 전에는 어떤 경로로도 브라우저에 가면 안 되는 결과 콘텐츠 전체 (유형 해설, 조합 해석 30개, 결과 안내문, 추천직업 원본). */
+const jobCatalog = JSON.parse(await readFile(new URL("../src/content/job-catalog.json", import.meta.url), "utf8"));
+// 퇴직경찰 추천직업 카탈로그의 표시명. 다섯 글자 이상만 쓴다(짧은 이름은 다른 글자와 우연히 겹칠 수 있다).
+const catalogJobNames = [...new Set(jobCatalog.display.map((entry) => entry.name).filter((name) => name.length >= 5))];
+/** 제출 전에는 어떤 경로로도 브라우저에 가면 안 되는 결과 콘텐츠 전체 (유형 해설, 조합 해석 30개, 결과 안내문, 추천직업 원본, 추천직업 카탈로그). */
 const protectedMarkers = () => [
   ...Object.keys(interpretations.types).flatMap((type) => markersFor(type).map((text) => [`${type} 해설`, text])),
   ...Object.keys(combinedInterpretations.combinations).flatMap((key) => combinedMarkers(key).map((text) => [`${key} 종합 해석`, text])),
   ...interpretations.commonNotes.map((text) => ["결과 안내문", text]),
+  ...catalogJobNames.map((name) => ["추천직업 카탈로그", name]),
   // 추천직업 원본: 두 글자 직업명은 다른 글자와 우연히 겹칠 수 있어 목록 전체를 이은 문자열과 세 글자 이상 직업명으로 확인한다.
   ...Object.entries(interpretations.types).flatMap(([type, t]) => [
     [`${type} 추천직업 원본 목록`, JSON.stringify(t.seniorJobs)], [`${type} 추천직업 원본 목록`, JSON.stringify(t.generalJobs)],
@@ -101,7 +105,7 @@ try {
   }
   async function enter(who = nickname, digits = phone) {
     await page.goto(`${base}${entry}`);
-    await page.getByLabel("닉네임", { exact: true }).fill(who);
+    await page.getByLabel("성명", { exact: true }).fill(who);
     await page.getByLabel("휴대폰 뒷자리 4자리").fill(digits);
     await page.getByLabel("개인정보 수집에 동의합니다").check();
     await page.getByRole("button", { name: "시작하기", exact: true }).click();
@@ -119,19 +123,26 @@ try {
   }
   async function end() {
     await page.getByRole("button", { name: "이용 종료", exact: true }).click();
-    await page.getByRole("button", { name: "저장하고 이용 종료", exact: true }).click();
+    await page.getByRole("group", { name: "이용 종료 확인" }).getByRole("button", { name: "이용 종료", exact: true }).click();
     await page.waitForURL(base + "/");
   }
 
+  // 현재 홈 디자인은 시작 버튼이 하단(footer) 한 곳뿐이다. hero 버튼이 있으면 첫 화면 안에 있는지 확인하고, 없으면 하단 버튼이 보이는지만 확인한다.
+  let heroMissing = false;
   for (const [width, height] of [[360, 800], [390, 844], [1440, 900]]) {
     await page.setViewportSize({ width, height });
     await page.goto(base);
-    await page.locator('[data-start-cta="hero"], [data-start-notice]').first().waitFor({ state: "visible" });
-    const cta = page.locator('[data-start-cta="hero"]');
+    await page.locator('[data-start-cta], [data-start-notice]').first().waitFor({ state: "visible" });
+    const hero = page.locator('[data-start-cta="hero"]');
+    const cta = page.locator("[data-start-cta]").first();
     if (await cta.count()) {
       await cta.waitFor({ state: "visible" });
-      const rect = await cta.boundingBox();
-      assert.ok(rect && rect.y >= 0 && rect.y + rect.height <= height);
+      if (await hero.count()) {
+        const rect = await hero.boundingBox();
+        assert.ok(rect && rect.y >= 0 && rect.y + rect.height <= height);
+      } else {
+        heroMissing = true;
+      }
     } else {
       await page.locator("[data-start-notice]").first().waitFor();
     }
@@ -141,7 +152,9 @@ try {
     await page.getByRole("button", { name: "홈", exact: true }).waitFor();
     await layout(`entry-${width}`);
   }
-  check("360/390/1440 home + entry layouts; first-screen start action");
+  check(heroMissing
+    ? "360/390/1440 home + entry layouts; start action is visible (current home has no hero button, so the first-screen check does not apply)"
+    : "360/390/1440 home + entry layouts; first-screen start action");
   await page.setViewportSize({ width: 390, height: 844 });
   await enter();
   await number(1);
@@ -195,10 +208,10 @@ try {
   let logoutRequests = 0;
   page.on("request", (request) => { if (request.url().endsWith("/api/session/logout")) logoutRequests++; });
   await page.getByRole("button", { name: "이용 종료", exact: true }).click();
-  await page.getByRole("button", { name: "저장하고 이용 종료", exact: true }).click();
+  await page.getByRole("group", { name: "이용 종료 확인" }).getByRole("button", { name: "이용 종료", exact: true }).click();
   await page.getByRole("alert").filter({ hasText: "응답을 저장하지 못했어요" }).waitFor();
   assert.equal(logoutRequests, 0);
-  await page.getByRole("button", { name: "계속 이용하기" }).click();
+  await page.getByRole("button", { name: "계속 머무르기" }).click();
   await page.unroute("**/api/session/response");
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   const oldToken = await token();
@@ -373,12 +386,12 @@ try {
   await page.getByRole("button", { name: "이용 종료", exact: true }).click();
   await page.getByText("이용을 종료하면 진단 결과를 다시 확인할 수 없습니다. 결과를 충분히 확인한 뒤 종료해 주세요.", { exact: true }).waitFor();
   assert.doesNotMatch(await page.locator("body").innerText(), /PDF|인쇄|A4/);
-  await page.getByRole("button", { name: "저장하고 이용 종료" }).click();
-  await page.getByRole("alert").waitFor();
+  await page.getByRole("group", { name: "이용 종료 확인" }).getByRole("button", { name: "이용 종료", exact: true }).click();
+  await page.getByRole("alert").filter({ hasText: "이용을 종료하지 못했어요" }).waitFor();
   assert.equal(await token(), submittedToken);
   assert.ok(page.url().endsWith("/result"));
   await page.unroute("**/api/session/logout");
-  await page.getByRole("button", { name: "저장하고 이용 종료" }).click();
+  await page.getByRole("group", { name: "이용 종료 확인" }).getByRole("button", { name: "이용 종료", exact: true }).click();
   await page.waitForURL(base + "/");
   await revoked(submittedToken);
   await page.goBack();
@@ -387,7 +400,7 @@ try {
   await page.reload();
   assert.equal(await page.getByRole("heading", { name: `${nickname}님의 검사 결과` }).count(), 0);
   await page.goto(`${base}${entry}/result`);
-  await page.getByLabel("닉네임", { exact: true }).waitFor();
+  await page.getByLabel("성명", { exact: true }).waitFor();
   const reenter = await post("/api/session/enter", { courseCode: code, nickname, phoneLast4: phone, consent: true });
   assert.equal(reenter.status(), 409);
   assert.equal((await reenter.json()).error.code, "ALREADY_SUBMITTED");

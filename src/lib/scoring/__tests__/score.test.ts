@@ -15,6 +15,7 @@ import {
   type JobSource,
   type RiasecType,
 } from "../score";
+import { EMPTY_JOB_CATALOG } from "../jobCatalog";
 import { SCORING_VERSION } from "../version";
 
 const realTypes = interpretations.types as Record<RiasecType, TypeInterpretation>;
@@ -150,13 +151,15 @@ describe("validateSubmission", () => {
   });
 });
 
+// 기존 seniorJobs → generalJobs 방식은 카탈로그가 비어 있을 때의 폴백 경로다. 아래 f~m-2 는 그 경로를 빈 카탈로그로 검증한다.
+// 카탈로그 대표·보충 선정은 jobCatalog.test.ts 에서 검증한다.
 describe("selectJobs", () => {
   it("f. 1·2순위 목록에 같은 이름이 있으면 1순위에서만 나오고 2순위는 다음 직업으로 채운다", () => {
     const source = jobSource({
       R: { seniorJobs: ["r1", "공통", "r3", "r4", "r5"], generalJobs: [] },
       I: { seniorJobs: ["i1", "공통", "i3", "i4", "i5", "i6"], generalJobs: [] },
     });
-    const [first, second] = selectJobs("R", "I", source);
+    const [first, second] = selectJobs("R", "I", source, EMPTY_JOB_CATALOG);
     expect(first.jobs).toEqual(["r1", "공통", "r3", "r4", "r5"]);
     expect(second.jobs).toEqual(["i1", "i3", "i4", "i5", "i6"]);
     expect(second.count).toBe(5);
@@ -167,12 +170,12 @@ describe("selectJobs", () => {
       R: { seniorJobs: ["r1", "r1"], generalJobs: ["r1", "r2", "r3", "r4"] },
       I: { seniorJobs: ["i1", "i2", "i3", "i4", "i5"], generalJobs: [] },
     });
-    expect(selectJobs("R", "I", source)[0].jobs).toEqual(["r1", "r2", "r3", "r4"]);
+    expect(selectJobs("R", "I", source, EMPTY_JOB_CATALOG)[0].jobs).toEqual(["r1", "r2", "r3", "r4"]);
   });
 
   it("g. A 유형 고령자 목록이 1개뿐이면 일반성인 목록에서 4개를 순서대로 보충한다", () => {
     expect(realTypes.A.seniorJobs).toHaveLength(1);
-    const [first] = selectJobs("A", "R");
+    const [first] = selectJobs("A", "R", undefined, EMPTY_JOB_CATALOG);
     expect(first.type).toBe("A");
     expect(first.jobs).toEqual([realTypes.A.seniorJobs[0], ...realTypes.A.generalJobs.slice(0, 4)]);
     expect(first.count).toBe(5);
@@ -183,7 +186,7 @@ describe("selectJobs", () => {
       R: { seniorJobs: ["r1"], generalJobs: ["r2"] },
       I: { seniorJobs: ["r1", "r2"], generalJobs: [] },
     });
-    const [first, second] = selectJobs("R", "I", source);
+    const [first, second] = selectJobs("R", "I", source, EMPTY_JOB_CATALOG);
     expect(first).toEqual({ type: "R", jobs: ["r1", "r2"], count: 2 });
     expect(second).toEqual({ type: "I", jobs: [], count: 0 });
   });
@@ -210,8 +213,24 @@ describe("selectJobs", () => {
       R: { seniorJobs: ["  r1 ", "", "   ", "r1"], generalJobs: ["r2"] },
       I: { seniorJobs: [" r2"], generalJobs: ["i1"] },
     });
-    const [first, second] = selectJobs("R", "I", source);
+    const [first, second] = selectJobs("R", "I", source, EMPTY_JOB_CATALOG);
     expect(first.jobs).toEqual(["r1", "r2"]);
     expect(second.jobs).toEqual(["i1"]);
+  });
+});
+
+describe("결과 계산 버전 (results.scoring_version)", () => {
+  it("추천직업 선정 규칙이 카탈로그 대표 우선으로 바뀐 것을 구분하도록 1.1.0 이다", () => {
+    expect(SCORING_VERSION).toBe("1.1.0");
+    expect(SCORING_VERSION).toMatch(/^[0-9]+[.][0-9]+[.][0-9]+$/);
+  });
+
+  it("calculateScores 가 이 버전을 담고, 점수·순위·동점 처리는 1.0.0 시절과 같다 (모두 예·모두 선택 입력)", () => {
+    const r = calculateScores(allGeneral(true), allAdjectives());
+    expect(r.scoringVersion).toBe(SCORING_VERSION);
+    expect(r.generalScores).toEqual({ R: 7, I: 7, A: 7, S: 7, E: 7, C: 7 });
+    expect(r.adjectiveScores).toEqual({ R: 5, I: 5, A: 5, S: 5, E: 5, C: 5 });
+    expect(r.totals).toEqual({ R: 12, I: 12, A: 12, S: 12, E: 12, C: 12 });
+    expect([r.top1, r.top2, r.tieBroken]).toEqual(["R", "I", true]); // 동점이면 RIASEC 순서
   });
 });

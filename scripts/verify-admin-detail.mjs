@@ -64,26 +64,19 @@ const textOf = (html) => markupOf(html).replace(/<!--.*?-->/g, "").replace(/<[^>
 // 고객·관리자 화면에서 A4 결과지(제목 ~ 하단 문구)의 글자만 잘라 비교한다.
 const sheetText = (html) => {
   const text = textOf(html);
-  const start = text.indexOf("직업선호도 검사 결과");
+  const start = text.indexOf("나의 직업흥미 결과"); // A4 1쪽 제목 (디자인 개편 이후 표기)
   const endMarker = "기관명 · 문의처 자리";
   const end = text.lastIndexOf(endMarker); // 두 장 모두 하단 문구가 있으므로 마지막 장까지 자른다
   assert(start >= 0 && end > start, "A4 결과지 영역을 찾지 못함");
   return text.slice(start, end + endMarker.length);
 };
 
-/** 선택 직업을 selectJobs 와 같은 규칙(고령자 목록 먼저, 이름 중복 제거, 유형당 5개)으로 만든다. 인쇄 폭 측정용. */
+const jobGolden = JSON.parse(readFileSync(new URL("../src/lib/scoring/__tests__/__fixtures__/jobs-30.json", import.meta.url), "utf8"));
+/** 1·2순위 조합의 추천직업. 앱의 selectJobs 결과를 담은 골든 파일(jobCatalog.test.ts 가 앱 로직과 일치함을 검증)을 그대로 쓴다. */
 function jobsFor(top1, top2) {
-  const used = new Set();
-  return [top1, top2].map((type) => {
-    const jobs = [];
-    for (const name of [...interpretations.types[type].seniorJobs, ...interpretations.types[type].generalJobs]) {
-      if (jobs.length >= 5) break;
-      if (used.has(name.trim())) continue;
-      used.add(name.trim());
-      jobs.push(name.trim());
-    }
-    return { type, jobs, count: jobs.length };
-  });
+  const recs = jobGolden[top1 + top2];
+  if (!recs) throw new Error("골든 파일에 없는 조합: " + top1 + top2);
+  return structuredClone(recs);
 }
 
 function findChrome() {
@@ -319,6 +312,8 @@ try {
     const customerText = textOf(customerHtml);
     const adminSheet = sheetText(adminHtml);
     const result = unwrap(await db.from("results").select("*").eq("session_id", id).single());
+    // 실제 앱(빌드한 서버)이 저장한 추천직업이 골든 파일(= selectJobs 의 기대 결과)과 같아야 한다. 앱 로직이 바뀌면 여기서 드러난다.
+    assert.deepEqual(result.job_recommendations, jobGolden[`${result.top1}${result.top2}`], "앱이 저장한 추천직업이 골든 파일과 다름");
     const expected = ["예술형", "탐구형", ...result.job_recommendations.flatMap((entry) => entry.jobs)];
     for (const type of [result.top1, result.top2]) {
       const section = interpretations.types[type];

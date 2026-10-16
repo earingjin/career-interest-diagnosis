@@ -1,1 +1,7 @@
-export const SCORING_VERSION = "1.0.0";
+// 결과 계산 규칙의 버전. 제출할 때 results.scoring_version 에 그 시점의 값이 저장된다 (DB 컬럼은 제약 없는 텍스트).
+// 점수·순위·동점 처리뿐 아니라 추천직업 선정 규칙이 바뀔 때도 올린다. 의미와 이력은 docs/versioning.md 에 있다.
+//
+//   1.0.0  기존 방식: 고령자 목록(seniorJobs) → 일반성인 목록(generalJobs)의 앞쪽 5개
+//   1.1.0  퇴직경찰 추천직업 카탈로그의 대표 5개를 승인된 순서대로 고정 우선 추천하고, 부족분만 기존 목록으로 보충
+//          (점수 계산·1·2순위·동점 처리는 1.0.0 과 같다)
+export const SCORING_VERSION = "1.1.0";

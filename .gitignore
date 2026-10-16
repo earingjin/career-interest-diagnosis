@@ -43,3 +43,6 @@ next-env.d.ts
 
 # 조사용 임시 파일
 /scratch/
+
+# 개발 참고용 원본 자료 (GitHub 업로드 제외)
+/docs/source/

@@ -1,12 +1,15 @@
 import questions from "../../content/questions.json";
 import interpretations from "../../content/interpretations.server";
+import jobCatalog from "../../content/job-catalog.server";
 import {
   RIASEC_ORDER,
   type AdjectiveItem,
   type GeneralQuestion,
+  type JobCatalog,
   type RiasecType,
   type TypeInterpretation,
 } from "../../content/types";
+import { normalizeJobName, pickCatalogJobs, type TakenJobs } from "./jobCatalog";
 import { SCORING_VERSION } from "./version";
 
 export { RIASEC_ORDER };
@@ -50,6 +53,7 @@ export class SubmissionError extends Error {
 const GENERAL_QUESTIONS = questions.general as GeneralQuestion[];
 const ADJECTIVE_ITEMS = questions.adjectives as AdjectiveItem[];
 const TYPE_INTERPRETATIONS = interpretations.types as Record<RiasecType, TypeInterpretation>;
+const JOB_CATALOG = jobCatalog as unknown as JobCatalog;
 
 const GENERAL_TYPE_BY_ID = new Map(GENERAL_QUESTIONS.map((q) => [q.id, q.type]));
 const ADJECTIVE_TYPE_BY_ID = new Map(ADJECTIVE_ITEMS.map((a) => [a.id, a.type]));
@@ -112,25 +116,31 @@ export function validateSubmission(general: GeneralAnswers, adjectives: Adjectiv
 
 /**
  * 1순위 유형부터 유형당 최대 JOBS_PER_TYPE 개의 추천직업을 뽑는다.
- * 고령자 목록(seniorJobs)을 먼저, 부족하면 일반성인 목록(generalJobs)을 원래 순서대로 쓴다.
- * 이미 뽑힌 이름은 (두 유형 전체에 걸쳐) 건너뛴다. 목록이 부족하면 채운 만큼만 돌려준다.
+ * 1) 퇴직경찰 추천직업 카탈로그의 대표 5개를 승인된 rank 순서대로 고정 우선 선정한다.
+ * 2) 대표가 제외·중복으로 부족할 때만 카탈로그의 보충 후보에서 업무 그룹 → 분야 다양성 순으로 채운다.
+ * 3) 그래도 부족하면 기존 방식대로 고령자 목록(seniorJobs)을 먼저, 일반성인 목록(generalJobs)을 원래 순서대로 쓴다.
+ * 이미 뽑힌 직업은 (두 유형 전체에 걸쳐, 1순위 우선) 건너뛴다. 목록이 부족하면 채운 만큼만 돌려준다.
  */
 export function selectJobs(
   top1: RiasecType,
   top2: RiasecType,
   source: Record<RiasecType, JobSource> = TYPE_INTERPRETATIONS,
+  catalog: JobCatalog = JOB_CATALOG,
 ): JobRecommendation[] {
-  const used = new Set<string>();
+  const taken: TakenJobs = { names: new Set<string>(), keys: new Set<string>() };
 
   return [top1, top2].map((type) => {
-    const jobs: string[] = [];
+    const picked = pickCatalogJobs(type, catalog, taken, JOBS_PER_TYPE);
+    const jobs = picked.map((display) => display.name);
     for (const raw of [...source[type].seniorJobs, ...source[type].generalJobs]) {
       if (jobs.length >= JOBS_PER_TYPE) break;
       const name = raw.trim();
-      if (name === "" || used.has(name)) continue;
-      used.add(name);
+      const key = normalizeJobName(name);
+      if (key === "" || taken.names.has(key) || jobs.some((job) => normalizeJobName(job) === key)) continue;
       jobs.push(name);
     }
+    for (const display of picked) taken.keys.add(display.dedupeKey);
+    for (const job of jobs) taken.names.add(normalizeJobName(job));
     return { type, jobs, count: jobs.length };
   });
 }
