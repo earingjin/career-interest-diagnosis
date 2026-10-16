@@ -895,7 +895,7 @@
   font-size: 10.5pt;
   font-weight: 600;
   line-height: 1.35;
-  color: var(--muted);
+  color: #2856bc;
 }
 
 .bandItems dd {
@@ -1056,5 +1056,270 @@
 
   .sheet:last-child {
     break-after: avoid;
+  }
+}
+
+/* 모바일 결과 전용. 공통 컴포넌트와 A4 인쇄 규칙은 위의 기존 스타일을 사용한다. */
+@media screen {
+  .root:has(> .mobile) {
+    color: #334155;
+    background: #f7f9fc;
+    font-size: 1.125rem;
+    line-height: 1.6;
+  }
+
+  .mobile {
+    --bg-accent: #e6effd;
+    --border-accent: #2856bc;
+    --text: #334155;
+    --muted: #526174;
+    --line: #dce3ec;
+    width: 100%;
+    gap: 1.75rem;
+    padding: 2rem 1.25rem max(2.5rem, env(safe-area-inset-bottom));
+    font-size: 1.125rem;
+    color: var(--text);
+    background: #f7f9fc;
+  }
+
+  .mobile > * {
+    min-width: 0;
+  }
+
+  .mobile .mHeader {
+    gap: 0.5rem;
+  }
+
+  .mobile .mTitle {
+    font-size: 1.625rem;
+    line-height: 1.5;
+    color: #203654;
+    overflow-wrap: anywhere;
+  }
+
+  .mobile .mDate {
+    font-size: 1rem;
+  }
+
+  .mobile .mSection {
+    gap: 1rem;
+  }
+
+  .mobile .mHeading,
+  .mobile .combinedTitle,
+  .mobile .notesTitle,
+  .mobile .groupTitle {
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.5;
+    color: #203654;
+  }
+
+  .mobile .mHexagon {
+    padding: 0.75rem 0.5rem 1rem;
+  }
+
+  .mobile .mHexagon svg {
+    display: block;
+    flex: 0 1 auto;
+    min-width: 0;
+    aspect-ratio: 1;
+  }
+
+  .mobile .ranks {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+
+  .mobile .rank,
+  .mobile .card {
+    gap: 0.375rem;
+    padding: 1.25rem;
+    border-radius: 1rem;
+  }
+
+  .mobile .cardFirst {
+    background: #e6effd;
+    border: 1px solid #9cb7e7;
+  }
+
+  .mobile .cardSecond {
+    background: #ffffff;
+    border: 1px solid #dce3ec;
+  }
+
+  .mobile .rankName,
+  .mobile .cardName {
+    font-size: 1.75rem;
+    line-height: 1.5;
+    color: #203654;
+  }
+
+  .mobile .rankEn,
+  .mobile .cardEn {
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  .mobile .rankScore {
+    margin-top: 0.25rem;
+    font-size: 1.5rem;
+  }
+
+  .mobile .cardKeywords,
+  .mobile .cardRank {
+    font-size: 1.125rem;
+  }
+
+  .mobile .cardSecond .cardRank {
+    color: #526174;
+  }
+
+  .mobile .combined,
+  .mobile .group {
+    padding: 1.25rem;
+    background: #ffffff;
+    border: 1px solid #dce3ec;
+    border-radius: 1rem;
+  }
+
+  .mobile .combinedRows {
+    gap: 1.25rem;
+    margin-top: 1.25rem;
+  }
+
+  .mobile .combinedRows > div + div {
+    padding-top: 1.25rem;
+    border-top: 1px solid #dce3ec;
+  }
+
+  .mobile .combinedRows dt {
+    margin-bottom: 0.5rem;
+    font-size: 1.125rem;
+    color: #203654;
+  }
+
+  .mobile .combinedSummary dd {
+    font-weight: 600;
+  }
+
+  .mobile .scoreDropdown {
+    background: #ffffff;
+    border-radius: 1rem;
+  }
+
+  .mobile .scoreDropdown summary {
+    min-height: 60px;
+    padding: 1.25rem;
+    border-radius: 1rem;
+  }
+
+  .mobile .scoreDropdownIcon {
+    color: #315b9a;
+    transition: none;
+  }
+
+  .mobile .scoreDropdownContent {
+    max-width: 100%;
+    padding: 0 0 1rem;
+    overflow-x: auto;
+  }
+
+  .mobile .table {
+    min-width: 23rem;
+    font-size: 1.0625rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mobile .table th,
+  .mobile .table td {
+    padding: 0.875rem 0.625rem;
+    white-space: nowrap;
+  }
+
+  .mobile .table thead th {
+    color: #203654;
+    background: #edf3fb;
+  }
+
+  .mobile .table tr[data-rank="1순위"] > * {
+    background: #e6effd;
+  }
+
+  .mobile .table tr[data-rank="2순위"] > * {
+    font-weight: 600;
+    background: #f1f5fc;
+  }
+
+  .mobile .rankBadge {
+    font-size: 1rem;
+  }
+
+  .mobile .groups {
+    gap: 1rem;
+  }
+
+  .mobile .groupTitle {
+    padding-bottom: 0.75rem;
+    border-color: #dce3ec;
+  }
+
+  .mobile .row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+    padding: 1rem 0;
+    border-color: #dce3ec;
+  }
+
+  .mobile .row dt {
+    color: #203654;
+  }
+
+  .mobile .row:last-child {
+    padding-bottom: 0;
+  }
+
+  .mobile .jobList {
+    margin-top: 1rem;
+    padding: 1rem 1rem 1rem 2.25rem;
+    background: #edf3fb;
+    border-radius: 0.75rem;
+  }
+
+  .mobile .jobList li + li {
+    margin-top: 0.5rem;
+  }
+
+  .mobile .notes {
+    padding: 1.25rem;
+    background: #edf3fb;
+    border: 1px solid #dce3ec;
+    border-radius: 1rem;
+  }
+
+  .mobile .notesList {
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .mobile .mFooter {
+    padding-top: 0.5rem;
+  }
+
+  .mobile .backButton {
+    min-height: 60px;
+    padding: 0.75rem 1rem;
+    font-size: 1.125rem;
+    color: #ffffff;
+    background: #2856bc;
+    border: 1px solid transparent;
+    border-radius: 0.75rem;
+  }
+
+  .mobile .backButton:focus-visible,
+  .mobile .scoreDropdown summary:focus-visible,
+  .mobile .scoreDropdownContent:focus-visible {
+    outline: 3px solid #315b9a;
+    outline-offset: 3px;
   }
 }

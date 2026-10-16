@@ -68,12 +68,12 @@ describe("parseEnterBody", () => {
 
   it("닉네임 규칙: 1자, 11자, 특수문자는 거부하고 2~10자는 허용한다", () => {
     for (const nickname of ["가", "가".repeat(11), "나무!", "", "ㄱㅏ"]) {
-      expect(() => parseEnterBody({ ...validBody(), nickname }), nickname).toThrow(/닉네임/);
+      expect(() => parseEnterBody({ ...validBody(), nickname }), nickname).toThrow(/성명/);
     }
     for (const nickname of ["나무", "ab12", "가".repeat(10)]) {
       expect(parseEnterBody({ ...validBody(), nickname }).nickname).toBe(nickname);
     }
-    expect(() => parseEnterBody({ ...validBody(), nickname: 1234 })).toThrow(/닉네임/);
+    expect(() => parseEnterBody({ ...validBody(), nickname: 1234 })).toThrow(/성명/);
   });
 
   it("휴대폰 뒷자리는 정확히 숫자 4자리여야 한다", () => {

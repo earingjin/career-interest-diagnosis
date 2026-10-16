@@ -65,7 +65,7 @@ export function EntryForm({ courseCode }: { courseCode: string }) {
       <CustomerNavigation disabled={submitting} />
       <div className={styles.field}>
         <label className={styles.label} htmlFor="nickname">
-          닉네임
+          성명
         </label>
         <span className={styles.hint} id="nickname-hint">
           2~10자, 한글·영문·숫자만 쓸 수 있어요
@@ -118,9 +118,9 @@ export function EntryForm({ courseCode }: { courseCode: string }) {
 
       <div className={styles.notice}>
         <p className={styles.noticeTitle}>개인정보 수집 안내</p>
-        <p>수집 목적: 검사 결과를 보여드리고, 강사님이 확인하기 위해 사용해요.</p>
-        <p>보관 내용: 닉네임, 휴대폰 뒷자리(숫자는 저장하지 않고 변환한 값만 저장), 검사 응답, 검사 결과</p>
-        <p>보관 기간: 현재는 계속 보관해요.</p>
+        <p className={styles.noticeItem}><span className={styles.noticeLabel}>수집 목적:</span>{" "}검사 결과를 보여드리고, 강사님이 확인하기 위해 사용해요.</p>
+        <p className={styles.noticeItem}><span className={styles.noticeLabel}>보관 내용:</span>{" "}성명, 휴대폰 뒷자리(숫자는 저장하지 않고 변환한 값만 저장), 검사 응답, 검사 결과</p>
+        <p className={styles.noticeItem}><span className={styles.noticeLabel}>보관 기간:</span>{" "}현재는 계속 보관해요.</p>
       </div>
 
       <label className={styles.consent}>

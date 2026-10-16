@@ -323,7 +323,7 @@ export function TestFlow({
   }
 
   return (
-    <main className={styles.main}>
+    <main className={`${styles.main} ${n !== null || step === "adjectives" ? styles.diagnosis : styles.reviewPage}`}>
       <CustomerNavigation
         canEnd
         cancelAdvance={cancelAdvance}

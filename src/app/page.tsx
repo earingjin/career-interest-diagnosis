@@ -18,11 +18,6 @@ async function StartButton({ variant }: { variant: "hero" | "footer" }) {
 export default function Home() {
   return (
     <Intro
-      hero={
-        <Suspense fallback={<StartAction state={{ kind: "loading" }} variant="hero" />}>
-          <StartButton variant="hero" />
-        </Suspense>
-      }
       footer={
         <Suspense fallback={<StartAction state={{ kind: "loading" }} variant="footer" />}>
           <StartButton variant="footer" />

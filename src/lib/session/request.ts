@@ -67,7 +67,7 @@ export function parseEnterBody(body: unknown): EnterInput {
   // 조합 자소(ㄱ+ㅏ 분리형)를 완성형으로 합친 뒤 검증한다.
   const nickname = typeof record.nickname === "string" ? record.nickname.normalize("NFC").trim() : "";
   if (!nicknameIsValid(nickname)) {
-    throw new RequestValidationError("닉네임은 한글, 영문, 숫자로 2~10자여야 해요.");
+    throw new RequestValidationError("성명은 한글, 영문, 숫자로 2~10자여야 해요.");
   }
 
   const phoneLast4 = record.phoneLast4;

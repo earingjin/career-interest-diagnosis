@@ -4,6 +4,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { findCourseByCode, getCurrentSessionForCourse, type Course } from "@/lib/session/db";
 import { COURSE_CODE_PATTERN } from "@/lib/session/request";
 import { EntryForm } from "./EntryForm";
+import styles from "./EntryForm.module.css";
 
 const NOT_FOUND_MESSAGE = "과정 정보를 찾을 수 없어요";
 
@@ -54,7 +55,7 @@ async function Entry({ params }: { params: PageProps<"/c/[courseCode]">["params"
 
 export default function CoursePage(props: PageProps<"/c/[courseCode]">) {
   return (
-    <main className="page">
+    <main className={`page ${styles.entryPage}`}>
       <Suspense fallback={<p className="message">불러오는 중…</p>}>
         <Entry params={props.params} />
       </Suspense>

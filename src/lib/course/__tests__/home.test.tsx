@@ -24,7 +24,7 @@ const states: Record<string, StartState> = {
 
 const render = (state: StartState) =>
   renderToStaticMarkup(
-    <Intro hero={<StartAction state={state} variant="hero" />} footer={<StartAction state={state} variant="footer" />} />,
+    <Intro footer={<StartAction state={state} variant="footer" />} />,
   );
 
 describe("홈 화면: 시작 버튼", () => {
@@ -32,7 +32,7 @@ describe("홈 화면: 시작 버튼", () => {
     const html = render(states.ok);
     expect(html).toContain("직업흥미 진단 시작하기");
     expect(html).toContain(`href="/c/${CODE}"`);
-    expect((html.match(/data-start-cta=/g) ?? []).length).toBe(2); // 첫 화면과 하단
+    expect((html.match(/data-start-cta=/g) ?? []).length).toBe(1); // 하단
     expect(html).not.toContain("data-start-notice");
   });
 
@@ -47,7 +47,7 @@ describe("홈 화면: 시작 버튼", () => {
       expect(html).not.toContain("href=");
       expect(html).not.toContain("data-start-cta");
       expect(html).not.toContain("직업흥미 진단 시작하기");
-      expect((html.match(new RegExp(`data-start-notice="${kind}"`, "g")) ?? []).length).toBe(2);
+      expect((html.match(new RegExp(`data-start-notice="${kind}"`, "g")) ?? []).length).toBe(1);
       expect(html).toContain('role="status"');
     });
   }

@@ -177,6 +177,7 @@ function MobileScoreTable({ view }: { view: ResultView }) {
             key={row.type}
             data-score-row={row.type}
             data-emphasized={row.emphasized ? "true" : "false"}
+            data-rank={rankLabel(view, row.type) || undefined}
             className={row.emphasized ? styles.rowEmphasized : undefined}
           >
             <th scope="row">
@@ -260,7 +261,7 @@ function MobileLayout({ view }: Pick<Props, "view">) {
           <span className={styles.mHeading}>전체 점수표</span>
           <span className={styles.scoreDropdownIcon} aria-hidden="true">⌄</span>
         </summary>
-        <div className={styles.scoreDropdownContent}>
+        <div className={styles.scoreDropdownContent} role="region" aria-label="전체 점수표" tabIndex={0}>
           <MobileScoreTable view={view} />
         </div>
       </details>
@@ -368,7 +369,7 @@ function PrintLayout({ view }: { view: ResultView }) {
             <h1 className={styles.pTitle}>나의 직업흥미 결과</h1>
           </div>
           <p className={styles.pInfo}>
-            <span>닉네임: {view.nickname}</span>
+            <span>성명: {view.nickname}</span>
             <span>검사일: {formatDate(view.submittedAt)}</span>
           </p>
         </header>
@@ -393,7 +394,7 @@ function PrintLayout({ view }: { view: ResultView }) {
         <header className={styles.pHeader}>
           <h2 className={styles.pTitle}>나의 직업흥미 상세 해설</h2>
           <p className={`${styles.pInfo} ${styles.pInfoInline}`}>
-            <span>닉네임: {view.nickname}</span>
+            <span>성명: {view.nickname}</span>
             <span>1순위 {view.top1.nameKo} · 2순위 {view.top2.nameKo}</span>
           </p>
         </header>

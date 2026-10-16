@@ -1,50 +1,53 @@
-/* 고객용 메인 화면: 차분한 네이비·블루·화이트, 모바일 우선. 모든 글자는 16px(1rem) 이상이다. */
+/* 고객용 랜딩페이지: 밝은 블루그레이·화이트, 모바일 우선. */
 
 .home {
-  --navy: #0b2a5b;
-  --navy-deep: #081f45;
-  --blue: #1d4ed8;
-  --sky: #eaf1ff;
-  --line: #cbd5e1;
-  --text: #0f172a;
-  --muted: #475569;
+  --navy: #203654;
+  --blue: #2856bc;
+  --blue-secondary: #315b9a;
+  --sky: #edf3fb;
+  --line: #dce3ec;
+  --text: #334155;
+  --muted: #526174;
+  font-size: 1.125rem;
+  line-height: 1.65;
   color: var(--text);
   background: #ffffff;
 }
 
 .inner {
   width: 100%;
-  max-width: 56rem;
+  max-width: 42rem;
   margin: 0 auto;
   padding: 0 1.25rem;
 }
 
 /* ===== 첫 화면 ===== */
 .hero {
-  padding: 1.75rem 0;
-  color: #ffffff;
-  background: linear-gradient(160deg, var(--navy-deep) 0%, var(--navy) 60%, #14408a 100%);
+  padding: 2.5rem 0;
+  background: #f0f5fc;
+  border-bottom: 1px solid var(--line);
 }
 
 .eyebrow {
   margin-bottom: 0.75rem;
-  font-size: 1rem;
+  font-size: 1.125rem;
   font-weight: 700;
   letter-spacing: 0.04em;
-  color: #bfd3ff;
+  color: var(--blue-secondary);
 }
 
 .title {
-  font-size: 1.5rem;
+  font-size: clamp(1.5rem, 6.5vw, 1.625rem);
   font-weight: 800;
-  line-height: 1.35;
+  line-height: 1.5;
+  color: var(--navy);
 }
 
 .lead {
   max-width: 34rem;
   margin-top: 1rem;
-  font-size: 1rem;
-  color: #e6eeff;
+  font-size: 1.125rem;
+  color: var(--text);
 }
 
 .action {
@@ -54,8 +57,8 @@
 .heroNote {
   max-width: 34rem;
   margin-top: 1rem;
-  font-size: 1rem;
-  color: #bfd3ff;
+  font-size: 1.125rem;
+  color: var(--muted);
 }
 
 /* ===== 시작 버튼 ===== */
@@ -65,43 +68,37 @@
   justify-content: center;
   gap: 0.6rem;
   width: 100%;
-  max-width: 26rem;
-  min-height: 64px;
-  padding: 0 1.5rem;
-  font-size: 1rem;
+  max-width: 34rem;
+  min-height: 60px;
+  padding: 0.75rem 1rem;
+  font-size: 1.125rem;
   font-weight: 800;
-  line-height: 1.3;
+  line-height: 1.5;
   text-align: center;
   text-decoration: none;
-  border-radius: 0.9rem;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
 }
 
-.ctaHero {
-  color: var(--navy);
-  background: #ffffff;
-  box-shadow: 0 6px 18px rgba(2, 12, 40, 0.35);
-}
-
-.ctaHero:hover {
-  background: var(--sky);
-}
-
+.ctaHero,
 .ctaFooter {
   color: #ffffff;
   background: var(--blue);
-  box-shadow: 0 6px 16px rgba(29, 78, 216, 0.3);
 }
 
+.ctaHero:hover,
 .ctaFooter:hover {
-  background: #1e40af;
+  background: #21499f;
 }
 
-.cta:focus-visible {
-  outline: 4px solid #fbbf24;
+.cta:focus-visible,
+.details summary:focus-visible {
+  outline: 3px solid var(--blue-secondary);
   outline-offset: 3px;
 }
 
 .arrow {
+  flex: none;
   font-size: 1.125rem;
 }
 
@@ -110,37 +107,32 @@
 .pending {
   max-width: 34rem;
   padding: 1rem 1.25rem;
-  font-size: 1rem;
+  font-size: 1.125rem;
   border-radius: 0.75rem;
 }
 
 .noticeTitle {
   margin-bottom: 0.25rem;
-  font-size: 1rem;
+  font-size: 1.125rem;
   font-weight: 800;
 }
 
-.onDark {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.45);
-}
-
+.onDark,
 .onLight {
-  color: var(--navy);
+  color: var(--text);
   background: var(--sky);
   border: 1px solid var(--line);
 }
 
 /* ===== 소개 구역 ===== */
 .section {
-  padding: 2.25rem 0;
+  padding: 2rem 0 2.5rem;
 }
 
 
 .heading {
   margin-bottom: 1.25rem;
-  font-size: 1.125rem;
+  font-size: 1.25rem;
   font-weight: 800;
   line-height: 1.4;
   color: var(--navy);
@@ -148,8 +140,39 @@
 
 .notes {
   display: grid;
-  gap: 0.6rem;
+  gap: 1rem;
   padding-left: 1.3rem;
+}
+
+.section ul.notes {
+  gap: 0;
+  padding: 0 1rem;
+  list-style: none;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+}
+
+.section ul.notes li {
+  position: relative;
+  padding: 1.25rem 0 1.25rem 2rem;
+}
+
+.section ul.notes li + li {
+  border-top: 1px solid var(--line);
+}
+
+/* 문구를 추가하지 않는 보조 체크 아이콘. */
+.section ul.notes li::before {
+  position: absolute;
+  top: 1.7rem;
+  left: 0.25rem;
+  width: 0.75rem;
+  height: 0.4rem;
+  content: "";
+  border-bottom: 2px solid var(--blue-secondary);
+  border-left: 2px solid var(--blue-secondary);
+  transform: rotate(-45deg);
 }
 
 .notes li::marker {
@@ -160,6 +183,38 @@
   margin-top: 1.75rem;
 }
 
+.details {
+  margin-top: 1.5rem;
+  background: var(--sky);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+}
+
+.details summary {
+  min-height: 60px;
+  padding: 1rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.6;
+  color: var(--navy);
+  cursor: pointer;
+  border-radius: 1rem;
+}
+
+.details summary::marker {
+  color: var(--blue-secondary);
+}
+
+.details[open] summary {
+  border-bottom: 1px solid var(--line);
+  border-radius: 1rem 1rem 0 0;
+}
+
+.details .notes {
+  margin: 0;
+  padding: 1.25rem 1rem 1.25rem 2.5rem;
+}
+
 /* ===== 넓은 화면 ===== */
 @media (min-width: 48rem) {
   .hero {
@@ -167,7 +222,7 @@
   }
 
   .title {
-    font-size: 2.6rem;
+    font-size: 2.25rem;
   }
 
   .lead {
@@ -178,7 +233,3 @@
     padding: 3.5rem 0;
   }
 }
-
-.details { margin-top: 1.25rem; padding: 0.75rem; border: 1px solid var(--line); border-radius: 0.75rem; }
-.details summary { min-height: 48px; font-weight: 700; cursor: pointer; }
-.details .notes { margin-top: 0.5rem; }

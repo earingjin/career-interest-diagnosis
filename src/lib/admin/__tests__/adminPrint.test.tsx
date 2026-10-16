@@ -241,7 +241,7 @@ describe("A4 두 장: 페이지별 내용", () => {
 
   it("1페이지: 기본정보·1·2순위 점수·그래프·종합 해석·점수 막대·안내 순서", () => {
     const order = [
-      "닉네임: 홍길동", 'aria-label="1순위와 2순위 요약"', "<svg",
+      "성명: 홍길동", 'aria-label="1순위와 2순위 요약"', "<svg",
       "나의 직업흥미 종합 해석", 'aria-label="전체 점수표"', "결과를 볼 때 알아 두세요", "기관명 · 문의처 자리",
     ].map((marker) => page1.indexOf(marker));
     expect(order.every((index) => index >= 0)).toBe(true);
