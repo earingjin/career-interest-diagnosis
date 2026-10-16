@@ -40,6 +40,20 @@ export type CombinedInterpretationsFile = {
   combinations: Record<string, CombinedInterpretation>;
 };
 
+export type CombinedDetail = {
+  /** 두 흥미가 함께 나타날 때의 모습 ("두 흥미가 만나면") */
+  together: string;
+  /** 지금까지의 경험과 연결해 보는 방법 ("경험에 연결해 보기") */
+  connect: string;
+  /** 균형 있게 살펴볼 점 ("균형 있게 살펴볼 점") */
+  balance: string;
+};
+
+/** 키는 1순위 + 2순위 순서. version·reviewStatus 는 관리용이며 화면에 보이지 않는다. */
+export type CombinedDetailsFile = {
+  combinations: Record<string, CombinedDetail>;
+};
+
 export type ResultGroup = {
   id: "interest" | "activity" | "career" | "jobs";
   title: string;
@@ -75,6 +89,8 @@ export type ResultView = {
   totals: ResultTotalRow[];
   /** 이 결과의 1·2순위 조합 하나에 대한 종합 해석. 다른 조합의 문안은 담지 않는다. */
   combinedInterpretation: CombinedInterpretation;
+  /** 이 결과의 1·2순위 조합 하나에 대한 상세 해석. 다른 조합의 문안은 담지 않는다. */
+  combinedDetail: CombinedDetail;
   /** 1·2순위에 공통으로 적용되는 안내. 결과 전체에 한 번만 표시한다. */
   commonNotes: string[];
 };
@@ -86,6 +102,7 @@ export type BuildResultViewInput = {
   submittedAt: string;
   interpretations: InterpretationsFile;
   combinedInterpretations: CombinedInterpretationsFile;
+  combinedDetails: CombinedDetailsFile;
 };
 
 // 화면과 관리자 출력에 같은 값을 전달한다. 두 순위에 공통인 안내는 영역에 넣지 않고 commonNotes 로 한 번만 전달한다.
@@ -177,6 +194,19 @@ function readCombined(top1: RiasecType, top2: RiasecType, file: CombinedInterpre
   return { summary: summary!, explanation: explanation!, exploration: exploration! };
 }
 
+/** 1·2순위 조합의 상세 해석 세 항목만 꺼낸다. 없거나 비어 있으면 readCombined 와 같이 오류로 처리한다. */
+function readDetail(top1: RiasecType, top2: RiasecType, file: CombinedDetailsFile): CombinedDetail {
+  const key = `${top1}${top2}`;
+  const entry: Partial<CombinedDetail> | undefined = Object.hasOwn(file.combinations, key) ? file.combinations[key] : undefined;
+  const { together, connect, balance } = entry ?? {};
+  for (const text of [together, connect, balance]) {
+    if (typeof text !== "string" || text.trim() === "") {
+      throw new ResultViewError(`${key} 조합의 상세 해석이 없거나 비어 있습니다.`);
+    }
+  }
+  return { together: together!, connect: connect!, balance: balance! };
+}
+
 /**
  * 저장된 results 행으로 결과 화면용 뷰 모델을 만든다.
  * 1·2순위는 저장된 값을 그대로 쓰되, 점수와 맞는지(동점이면 RIASEC 순서) 검증만 한다.
@@ -188,6 +218,7 @@ export function buildResultView({
   submittedAt,
   interpretations,
   combinedInterpretations,
+  combinedDetails,
 }: BuildResultViewInput): ResultView {
   if (!isRiasecType(result.top1) || !isRiasecType(result.top2) || result.top1 === result.top2) {
     throw new ResultViewError("1순위와 2순위 유형이 올바르지 않습니다.");
@@ -225,6 +256,7 @@ export function buildResultView({
       emphasized: type === top1 || type === top2,
     })),
     combinedInterpretation: readCombined(top1, top2, combinedInterpretations),
+    combinedDetail: readDetail(top1, top2, combinedDetails),
     commonNotes: [...interpretations.commonNotes],
   };
 }

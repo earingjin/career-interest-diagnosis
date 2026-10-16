@@ -1,4 +1,5 @@
 import "server-only";
+import combinedDetails from "../../content/combined-details.server";
 import combinedInterpretations from "../../content/combined-interpretations.server";
 import interpretations from "../../content/interpretations.server";
 import type { Db } from "../session/db";
@@ -61,6 +62,7 @@ export async function loadSessionResult(db: Db, sessionId: string): Promise<Sess
         submittedAt: new Date(row.submitted_at).toISOString(),
         interpretations,
         combinedInterpretations,
+        combinedDetails,
       }),
     };
   } catch (error) {

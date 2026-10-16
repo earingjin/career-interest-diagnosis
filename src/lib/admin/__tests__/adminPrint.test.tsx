@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import combinedDetails from "../../../content/combined-details.json";
 import combinedInterpretations from "../../../content/combined-interpretations.json";
 import interpretations from "../../../content/interpretations.json";
 import { buildResultView } from "../../result/view";
@@ -35,6 +36,7 @@ const view = buildResultView({
   submittedAt: "2026-10-14T03:00:00.000Z",
   interpretations,
   combinedInterpretations,
+  combinedDetails,
 });
 
 const html = renderToStaticMarkup(<AdminResultSheet view={view} listHref="/admin/results?date=2026-10-14" />);
@@ -104,6 +106,12 @@ describe("관리자 상세 화면: 공유 A4 결과지 유지", () => {
     expect(printBlock).toMatch(/\.previewFrame\s*{[^}]*width:\s*210mm\s*!important/);
   });
 
+  it("A4 결과지 CSS 는 빈 공간을 margin-top:auto 로 한곳에 모으지 않는다", () => {
+    const a4 = resultCss.slice(resultCss.indexOf("/* ===== A4 결과지"), resultCss.lastIndexOf("@media print"));
+    expect(a4.length).toBeGreaterThan(0);
+    expect(a4).not.toMatch(/margin-top:\s*auto/);
+  });
+
   it("인쇄 때 1페이지 뒤에서만 페이지를 나눈다", () => {
     const printBlock = resultCss.slice(resultCss.lastIndexOf("@media print"));
     expect(printBlock).toMatch(/\.sheet\s*{[^}]*break-after:\s*page/);
@@ -128,18 +136,32 @@ describe("모바일·A4 결과: 같은 해설과 공통 안내", () => {
   const escaped = (text: string) => renderToStaticMarkup(<>{text}</>);
   const count = (markup: string, text: string) => markup.split(`>${escaped(text)}<`).length - 1;
   // 유형 이름은 그래프·점수표·2페이지 머리말에도 나오므로 횟수 비교에서 뺀다.
+  // A4 띠는 "추천직업과 확인사항" 묶음 제목 대신 "추천직업" 줄과 "확인사항" 줄로 나누어 보여주므로 그 제목만 따로 확인한다.
   const sectionTexts = [view.top1, view.top2].flatMap((section) => [
     section.keywords, ...section.jobs,
-    ...section.groups.flatMap((group) => [group.title, ...group.items.flatMap((item) => [item.label, item.text])]),
+    ...section.groups.flatMap((group) => [...(group.id === "jobs" ? [] : [group.title]), ...group.items.flatMap((item) => [item.label, item.text])]),
   ]);
 
   const combinedTexts = Object.values(view.combinedInterpretation);
+  const detailTexts = Object.values(view.combinedDetail);
+  const detailLabels = ["나의 직업흥미 상세 해석", "두 흥미가 만나면", "경험에 연결해 보기", "균형 있게 살펴볼 점"];
 
-  it("유형 해설·키워드·추천직업·확인사항·종합 해석이 두 화면에 같은 횟수로 나온다", () => {
-    for (const text of [...sectionTexts, ...combinedTexts, "나의 직업흥미 종합 해석", "핵심 요약", "종합 설명", "탐색 제안"]) {
+  it("유형 해설·키워드·추천직업·확인사항·종합 해석·상세 해석이 두 화면에 같은 횟수로 나온다", () => {
+    for (const text of [...sectionTexts, ...combinedTexts, ...detailTexts, ...detailLabels, "나의 직업흥미 종합 해석", "핵심 요약", "종합 설명", "탐색 제안"]) {
       expect(count(mobile, text), text).toBeGreaterThan(0);
       expect(count(print, text), text).toBe(count(mobile, text));
     }
+  });
+
+  it("A4 띠는 추천직업 줄과 확인사항 줄로 나누고, 모바일은 기존 묶음 제목을 유지한다", () => {
+    expect(count(mobile, "추천직업과 확인사항")).toBe(2);
+    expect(count(print, "추천직업과 확인사항")).toBe(0);
+    expect(count(print, "추천직업")).toBe(2);
+    expect(count(print, "확인사항")).toBe(count(mobile, "확인사항"));
+  });
+
+  it("상세 해석 제목에 1·2순위 유형명이 함께 나온다", () => {
+    for (const markup of [mobile, print]) expect(markup).toContain(`(1순위 ${view.top1.nameKo} + 2순위 ${view.top2.nameKo})`);
   });
 
   it("공통 안내는 두 화면 모두 결과 전체에 정확히 한 번 나온다", () => {
@@ -205,6 +227,7 @@ describe("A4 두 장: 페이지별 내용", () => {
   const escaped = (text: string) => renderToStaticMarkup(<>{text}</>);
   const [, page1 = "", page2 = ""] = print.split(/data-print-page="\d"/);
   const combinedTexts = Object.values(view.combinedInterpretation);
+  const detailTexts = Object.values(view.combinedDetail);
 
   it("정확히 두 장이고 각 장에 제목과 쪽 번호, 기관명·문의처가 있다", () => {
     expect((print.match(/data-print-page=/g) ?? []).length).toBe(2);
@@ -216,27 +239,53 @@ describe("A4 두 장: 페이지별 내용", () => {
     for (const page of [page1, page2]) expect(page).toContain("기관명 · 문의처 자리");
   });
 
-  it("1페이지: 기본정보·그래프·1·2순위 점수·종합 해석·점수표·안내 순서", () => {
+  it("1페이지: 기본정보·1·2순위 점수·그래프·종합 해석·점수 막대·안내 순서", () => {
     const order = [
-      "닉네임: 홍길동", "<svg", 'aria-label="1순위와 2순위 요약"', "나의 직업흥미 종합 해석",
-      'aria-label="전체 점수표"', "결과를 볼 때 알아 두세요", "기관명 · 문의처 자리",
+      "닉네임: 홍길동", 'aria-label="1순위와 2순위 요약"', "<svg",
+      "나의 직업흥미 종합 해석", 'aria-label="전체 점수표"', "결과를 볼 때 알아 두세요", "기관명 · 문의처 자리",
     ].map((marker) => page1.indexOf(marker));
     expect(order.every((index) => index >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
-    const ranks = page1.slice(page1.indexOf('aria-label="1순위와 2순위 요약"'), page1.indexOf("나의 직업흥미 종합 해석"));
+    const ranks = page1.slice(page1.indexOf('aria-label="1순위와 2순위 요약"'), page1.indexOf("<svg"));
     expect(ranks).toContain(">7점<");
     expect(ranks).toContain(">6점<");
     for (const text of [...combinedTexts, ...view.commonNotes]) expect(page1, text).toContain(escaped(text));
     expect(page1).not.toContain("나의 직업흥미 특성");
+    for (const text of detailTexts) expect(page1, text).not.toContain(escaped(text));
   });
 
-  it("2페이지: 1·2순위 좌우 상세 해설만 있고 종합 해석·공통 안내를 반복하지 않는다", () => {
+  it("1페이지 점수 막대: 6줄, 줄마다 점수와 일반·형용사, 1·2순위 줄은 강조 표식과 순위 글자", () => {
+    const rows = [...page1.matchAll(/<li[^>]*data-score-row="([RIASEC])"[^>]*data-emphasized="(true|false)"[^>]*>([\s\S]*?)<\/li>/g)];
+    expect(rows.map((m) => m[1]).sort()).toEqual(["A", "C", "E", "I", "R", "S"]);
+    for (const [, type, emphasized, body] of rows) {
+      const row = view.totals.find((t) => t.type === type)!;
+      expect(body, type).toContain(`>${row.total}점<`);
+      expect(body, type).toContain(`일반 ${row.general} + 형용사 ${row.adjective}`);
+      expect(emphasized, type).toBe(row.emphasized ? "true" : "false");
+      if (type === view.top1.type) expect(body).toContain(">1순위<");
+      else if (type === view.top2.type) expect(body).toContain(">2순위<");
+      else expect(body, type).not.toMatch(/순위/);
+    }
+    // 점수가 높은 순서 (S 7점, E 6점이 맨 위)
+    expect(rows.slice(0, 2).map((m) => m[1])).toEqual(["S", "E"]);
+  });
+
+  it("2페이지: 1·2순위 띠와 조합 상세 해석이 있고 종합 해석·공통 안내를 반복하지 않는다", () => {
     for (const section of [view.top1, view.top2]) {
-      for (const text of [section.keywords, ...section.jobs, ...section.groups.flatMap((g) => [g.title, ...g.items.map((i) => i.text)])]) {
-        expect(page2, text).toContain(escaped(text));
-      }
+      const texts = [section.keywords, ...section.jobs, ...section.groups.flatMap((g) => [...(g.id === "jobs" ? [] : [g.title]), ...g.items.map((i) => i.text)])];
+      for (const text of texts) expect(page2, text).toContain(escaped(text));
     }
     expect(page2.indexOf(escaped(view.top1.keywords))).toBeLessThan(page2.indexOf(escaped(view.top2.keywords)));
+    const order = ['aria-label="1순위 상세 해설"', 'aria-label="2순위 상세 해설"', 'aria-label="나의 직업흥미 상세 해석"', "기관명 · 문의처 자리"].map((m) => page2.indexOf(m));
+    expect(order.every((index) => index >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    for (const text of detailTexts) expect(page2, text).toContain(escaped(text));
+    // 추천직업은 기존 순서대로 알약으로 나온다
+    for (const section of [view.top1, view.top2]) {
+      const positions = section.jobs.map((job) => page2.indexOf(`<li>${escaped(job)}</li>`));
+      expect(positions.every((i) => i >= 0)).toBe(true);
+      expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+    }
     for (const text of [...combinedTexts, ...view.commonNotes, "나의 직업흥미 종합 해석", "결과를 볼 때 알아 두세요"]) {
       expect(page2, text).not.toContain(escaped(text));
     }
@@ -246,10 +295,10 @@ describe("A4 두 장: 페이지별 내용", () => {
 describe("모바일 결과: 세로 배치 순서", () => {
   const mobile = renderToStaticMarkup(<ResultScreen view={view} mode="mobile" />);
 
-  it("기본정보 → 그래프 → 1·2순위 요약 → 종합 해석 → 점수표 → 안내 → 1순위 → 2순위 상세 해설", () => {
+  it("기본정보 → 그래프 → 1·2순위 요약 → 종합 해석 → 상세 해석 → 점수표 → 안내 → 1순위 → 2순위 상세 해설", () => {
     const order = [
       "홍길동님의 검사 결과", "유형별 점수 그래프", 'aria-label="1순위와 2순위 요약"', "나의 직업흥미 종합 해석",
-      "전체 점수표", "결과를 볼 때 알아 두세요", 'aria-label="1순위 상세 해설"', 'aria-label="2순위 상세 해설"',
+      'aria-label="나의 직업흥미 상세 해석"', "전체 점수표", "결과를 볼 때 알아 두세요", 'aria-label="1순위 상세 해설"', 'aria-label="2순위 상세 해설"',
     ].map((marker) => mobile.indexOf(marker));
     expect(order.every((index) => index >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);

@@ -7,7 +7,8 @@
 //   1. 상세 URL 접근 제한 (인증 없음, 고객 쿠키만, 만료, 변조)
 //   2. 동명 세션 구분, 완료·미완료·결과 누락·결과 손상·없는 세션·잘못된 ID 안내
 //   3. 실제 고객 흐름으로 만든 전체 결과 내용은 같고 출력은 관리자에게만 제공되는지
-//   4. Chrome 으로 인쇄 미디어를 켜고, 1·2순위 30가지 조합 모두에서 A4 한 장에 잘림이 없는지 측정
+//   4. Chrome 으로 인쇄 미디어를 켜고, 1·2순위 30가지 조합 모두에서 A4 두 장에 잘림·겹침이 없고
+//      쪽 아래 빈 공간이 12mm 이하인지 측정 (빈 공간 상세 측정은 scripts/measure-sheet-fill.mjs)
 //      (Chrome 을 찾지 못하면 4번은 "미검증"으로 표시하고 실패로 처리한다)
 
 import assert from "node:assert/strict";
@@ -26,6 +27,8 @@ const TYPE_NAME = { R: "현실형", I: "탐구형", A: "예술형", S: "사회�
 const interpretations = JSON.parse(readFileSync(new URL("../src/content/interpretations.json", import.meta.url), "utf8"));
 const questions = JSON.parse(readFileSync(new URL("../src/content/questions.json", import.meta.url), "utf8"));
 const combinedInterpretations = JSON.parse(readFileSync(new URL("../src/content/combined-interpretations.json", import.meta.url), "utf8"));
+const combinedDetails = JSON.parse(readFileSync(new URL("../src/content/combined-details.json", import.meta.url), "utf8"));
+const DETAIL_LABELS = ["나의 직업흥미 상세 해석", "두 흥미가 만나면", "경험에 연결해 보기", "균형 있게 살펴볼 점"];
 
 const secret = randomBytes(48).toString("base64url");
 const password = randomBytes(24).toString("base64url");
@@ -153,6 +156,10 @@ const MEASURE = `(() => {
       if (r.bottom > s.bottom + eps) problems.push(label + '아래로 넘침: ' + el.tagName + ' ' + (el.textContent || '').slice(0, 20));
       if (r.right > s.right + eps) problems.push(label + '오른쪽으로 넘침: ' + el.tagName + ' ' + (el.textContent || '').slice(0, 20));
       if (r.left < s.left - eps) problems.push(label + '왼쪽으로 넘침: ' + el.tagName);
+      // overflow:visible 이어도 내용이 상자보다 크면 아래 영역과 겹친다.
+      if (!(el instanceof SVGElement) && getComputedStyle(el).overflow === 'visible' && getComputedStyle(el).display !== 'inline' && el.scrollHeight > el.clientHeight + 2) {
+        problems.push(label + '영역 밖으로 넘침: ' + el.tagName + ' ' + (el.textContent || '').slice(0, 20));
+      }
       if (!(el instanceof SVGElement) && el.childNodes.length && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) {
         minFont = Math.min(minFont, parseFloat(getComputedStyle(el).fontSize));
       }
@@ -164,17 +171,16 @@ const MEASURE = `(() => {
         problems.push(label + '영역이 겹침: ' + (children[i - 1].getAttribute('aria-label') || children[i - 1].tagName) + ' / ' + (children[i].getAttribute('aria-label') || children[i].tagName));
       }
     }
-    // 여유 공간: 1페이지는 하단 안내 위, 2페이지는 바닥글 위. 글자가 있는 가장 아래 요소까지의 거리에서 영역 간격을 뺀다.
+    // 쪽 아래 빈 공간: 바닥글 위쪽 ~ 바닥글이 아닌 가장 아래 요소(상자 포함)까지의 거리. 음수면 바닥글과 겹친다.
     const footer = page.querySelector('footer');
     if (!footer) { problems.push(label + '바닥글 없음'); return; }
-    const limit = page.querySelector('[aria-label="결과를 볼 때 알아 두세요"]') || footer;
     let contentBottom = 0;
     for (const el of page.querySelectorAll('*')) {
-      if (limit.contains(el) || footer.contains(el) || (el instanceof SVGElement && !(el instanceof SVGSVGElement))) continue;
-      if (el.children.length === 0 || el instanceof SVGSVGElement) contentBottom = Math.max(contentBottom, el.getBoundingClientRect().bottom);
+      if (footer.contains(el) || (el instanceof SVGElement && !(el instanceof SVGSVGElement))) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) contentBottom = Math.max(contentBottom, r.bottom);
     }
-    const gap = parseFloat(getComputedStyle(page).rowGap) || 0;
-    spares.push(Math.round((limit.getBoundingClientRect().top - gap - contentBottom) * 10) / 10);
+    spares.push(Math.round((footer.getBoundingClientRect().top - contentBottom) * 10) / 10);
   });
   const toolbar = document.querySelector('[data-admin-chrome]');
   return {
@@ -319,17 +325,28 @@ try {
       for (const key of ["nameKo", "nameEn", "interest", "workStyle", "preferredActivity", "workEnvironment", "burdensomeActivity", "careerUse", "careerExplore", "careerCheck"]) expected.push(section[key]);
       expected.push(section.keywords.join(" · "));
     }
-    expected.push("경력 활용과 진로 탐색", "추천직업과 확인사항");
+    expected.push("경력 활용과 진로 탐색", "추천직업", "확인사항");
     // 이 고객의 1·2순위 조합 종합 해석 세 문장
     const ownKey = `${result.top1}${result.top2}`;
     expected.push("나의 직업흥미 종합 해석", ...Object.values(combinedInterpretations.combinations[ownKey]));
+    // 이 고객의 1·2순위 조합 상세 해석 세 항목과 항목명 (고객 모바일과 관리자 A4 에 같은 문안)
+    expected.push(...DETAIL_LABELS, ...Object.values(combinedDetails.combinations[ownKey]));
     for (const text of expected) {
       assert(customerText.includes(text), "고객 결과 내용 누락: " + text);
       assert(adminSheet.includes(text), "관리자 결과 내용 누락: " + text);
     }
+    // 고객 모바일은 기존 묶음 제목을 유지한다 (A4 띠는 추천직업 줄과 확인사항 줄로 나눈다).
+    assert(customerText.includes("추천직업과 확인사항"), "고객 결과 묶음 제목 누락: 추천직업과 확인사항");
+    // 상세 해석 세 항목은 두 화면에서 같은 문안이 각각 정확히 한 번
+    for (const text of Object.values(combinedDetails.combinations[ownKey])) {
+      assert.equal(customerText.split(text).length - 1, 1, "고객 상세 해석 횟수: " + text);
+      assert.equal(adminSheet.split(text).length - 1, 1, "관리자 상세 해석 횟수: " + text);
+    }
+    // 검수 상태 같은 관리용 값은 어느 응답에도 나가지 않는다.
+    for (const html of [customerHtml, adminHtml]) assert(!html.includes("draft-needs-review") && !html.includes("reviewStatus"), "관리용 메타 정보 노출");
     // 다른 29개 조합의 문장은 고객 응답(HTML·RSC 포함)과 관리자 응답 어디에도 없어야 한다.
-    const ownTexts = new Set(Object.values(combinedInterpretations.combinations[ownKey]));
-    for (const [key, entry] of Object.entries(combinedInterpretations.combinations)) {
+    const ownTexts = new Set([...Object.values(combinedInterpretations.combinations[ownKey]), ...Object.values(combinedDetails.combinations[ownKey])]);
+    for (const [key, entry] of [...Object.entries(combinedInterpretations.combinations), ...Object.entries(combinedDetails.combinations)]) {
       if (key === ownKey) continue;
       for (const text of Object.values(entry)) {
         if (ownTexts.has(text)) continue;
@@ -427,7 +444,7 @@ try {
     });
 
     const worst = [];
-    await check("4-3. 1·2순위 30가지 조합 모두 인쇄 시 잘림·겹침·글자 크기(10pt) 이상 없음, PDF 두 쪽", async () => {
+    await check("4-3. 1·2순위 30가지 조합 모두 인쇄 시 잘림·겹침·글자 크기(10pt)·쪽 아래 빈 공간(12mm 이하) 이상 없음, PDF 두 쪽", async () => {
       const bad = [];
       for (const [t1, t2] of pairs) {
         await go(`/admin/results/${printIds[`${t1}${t2}`]}`);
@@ -440,13 +457,15 @@ try {
         if (m.toolbarDisplay !== "none") problems.push("도구 줄이 인쇄에 보임");
         if (pages !== 2) problems.push(`PDF ${pages}쪽`);
         if (m.minFont < 13.3) problems.push(`글자 크기 ${m.minFont}px (10pt=13.3px 미만)`);
-        if (m.spare < 8) problems.push(`안전 여백 부족: 페이지별 ${JSON.stringify(m.spares)}px`);
+        // 12mm = 45.4px. 음수는 바닥글과 겹침.
+        if (m.spares.some((spare) => spare < -0.75 || spare > 45.4)) problems.push(`쪽 아래 빈 공간이 0~12mm 밖: 페이지별 ${JSON.stringify(m.spares)}px`);
         if (problems.length) bad.push(`${t1}${t2}: ${[...new Set(problems)].slice(0, 3).join(", ")}`);
       }
       writeFileSync(`${evidenceDirectory}/layout-checks.json`, JSON.stringify({ measurements: worst, failures: bad }, null, 2));
       assert.equal(bad.length, 0, bad.slice(0, 5).join(" | "));
       const tightest = worst.reduce((a, b) => (b.spare < a.spare ? b : a));
-      return `30개 조합 이상 없음. 가장 빠듯한 조합 ${tightest.pair}: 여백(1·2페이지) ${tightest.spares.join("·")}px, 최소 글자 ${Math.min(...worst.map((w) => w.minFont)).toFixed(1)}px`;
+      const widest = Math.max(...worst.flatMap((w) => w.spares));
+      return `30개 조합 이상 없음. 쪽 아래 빈 공간 최소 ${tightest.pair} ${tightest.spares.join("·")}px, 최대 ${widest}px(12mm=45px), 최소 글자 ${Math.min(...worst.map((w) => w.minFont)).toFixed(1)}px`;
     });
   }
 
@@ -460,7 +479,7 @@ try {
       await send("Emulation.setEmulatedMedia", { media: "print" });
       // 두 장 각각에 넘치는 문장을 넣어 측정기가 장별로 잡아내는지 확인한다.
       const found = [];
-      for (const [page, selector] of [["1", '[aria-label="나의 직업흥미 종합 해석"]'], ["2", ":scope > div > div"]]) {
+      for (const [page, selector] of [["1", '[aria-label="나의 직업흥미 종합 해석"]'], ["2", '[aria-label="1순위 상세 해설"]']]) {
         await send("Page.navigate", { url: `${BASE}/admin/results/${ctx.same1}` });
         await delay(1000); // 이전 문서에 넣지 않도록 새 문서가 열릴 때까지 기다린다
         for (let i = 0; i < 80; i++) {

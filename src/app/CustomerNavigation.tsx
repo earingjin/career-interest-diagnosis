@@ -84,8 +84,8 @@ export function CustomerNavigation({ onPrevious, beforeLeave, cancelAdvance, can
           ? "이용을 종료하면 진단 결과를 다시 확인할 수 없습니다. 결과를 충분히 확인한 뒤 종료해 주세요."
           : "응답을 저장한 뒤 이용을 종료해요. 같은 정보로 다시 시작하면 이어서 진행할 수 있어요."}</p>
         <div className={styles.actions}>
-          <button type="button" disabled={busy || disabled} onClick={() => void leave(true)}>저장하고 이용 종료</button>
-          <button type="button" disabled={busy || disabled} onClick={() => { setConfirming(false); setError(null); }}>계속 이용하기</button>
+          <button type="button" disabled={busy || disabled} onClick={() => void leave(true)}>이용 종료</button>
+          <button type="button" disabled={busy || disabled} onClick={() => { setConfirming(false); setError(null); }}>계속 머무르기</button>
         </div>
       </div>}
       {busy && <p role="status">{confirming ? "저장하고 이용을 종료하는 중…" : "저장 상태 확인 중…"}</p>}

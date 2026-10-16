@@ -3,10 +3,11 @@ import { createHash } from "node:crypto";
 import questions from "../questions.json";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import combinedDetails from "../combined-details.json";
 import combinedInterpretations from "../combined-interpretations.json";
 import interpretations from "../interpretations.json";
 import { RIASEC_ORDER } from "../types";
-import { COMBINED_INTERPRETATIONS_VERSION, CONTENT_VERSION, INTERPRETATIONS_VERSION } from "../version";
+import { COMBINED_DETAILS_VERSION, COMBINED_INTERPRETATIONS_VERSION, CONTENT_VERSION, INTERPRETATIONS_VERSION } from "../version";
 
 const countByType = (items: { type: string }[]) =>
   Object.fromEntries(RIASEC_ORDER.map((t) => [t, items.filter((i) => i.type === t).length]));
@@ -18,6 +19,7 @@ describe("version", () => {
     expect(CONTENT_VERSION).toBe("1.0.0");
     expect(INTERPRETATIONS_VERSION).toBe("2.2.0");
     expect(combinedInterpretations.version).toBe(COMBINED_INTERPRETATIONS_VERSION);
+    expect(combinedDetails.version).toBe(COMBINED_DETAILS_VERSION);
   });
 });
 
@@ -141,5 +143,84 @@ describe("combined-interpretations (1·2순위 조합 종합 해석)", () => {
 
   it("특정 연령대 표현이 없다", () => {
     expect(JSON.stringify(combinations)).not.toMatch(/중장년|장년|고령|시니어|노년|어르신|노인/);
+  });
+});
+
+describe("combined-details (1·2순위 조합 상세 해석)", () => {
+  const combinations = combinedDetails.combinations as Record<string, Record<string, unknown>>;
+  const expectedKeys = RIASEC_ORDER.flatMap((a) => RIASEC_ORDER.filter((b) => b !== a).map((b) => a + b));
+  const FIELDS = ["balance", "connect", "together"];
+  const sentencesOf = (text: string) => text.split(/(?<=[.?!])\s+/).map((s) => s.trim()).filter(Boolean);
+
+  it("검수 전 초안 표시가 최상위에 있다 (화면에는 쓰지 않는다)", () => {
+    expect(combinedDetails.reviewStatus).toBe("draft-needs-review");
+    expect(Object.keys(combinedDetails).sort()).toEqual(["combinations", "reviewStatus", "version"]);
+  });
+
+  it("정확히 30개이고 키가 1순위+2순위 조합과 같으며, 원본에 중복 키가 없다", () => {
+    expect(Object.keys(combinations).sort()).toEqual([...expectedKeys].sort());
+    const raw = readFileSync(path.join(process.cwd(), "src/content/combined-details.json"), "utf8");
+    const keys = [...raw.matchAll(/"([RIASEC]{2})"\s*:/g)].map((m) => m[1]);
+    expect(keys).toHaveLength(30);
+    expect(new Set(keys).size).toBe(30);
+  });
+
+  it.each(expectedKeys)("%s: together·connect·balance 세 항목이 비어 있지 않고 항목별 70~100자, 합계 200~300자", (key) => {
+    const entry = combinations[key];
+    expect(Object.keys(entry).sort()).toEqual(FIELDS);
+    let total = 0;
+    for (const field of FIELDS) {
+      const text = entry[field];
+      expect(typeof text, `${key}.${field}`).toBe("string");
+      expect(text, `${key}.${field}`).toBe((text as string).trim());
+      const length = (text as string).length;
+      expect(length, `${key}.${field} 길이`).toBeGreaterThanOrEqual(70);
+      expect(length, `${key}.${field} 길이`).toBeLessThanOrEqual(100);
+      total += length;
+    }
+    expect(total, `${key} 합계`).toBeGreaterThanOrEqual(200);
+    expect(total, `${key} 합계`).toBeLessThanOrEqual(300);
+  });
+
+  it("30개 조합 전체에서 같은 문장이 두 번 나오지 않고, 종합 해석 문장도 반복하지 않는다", () => {
+    const seen = new Map<string, string>();
+    const summaries = new Set(
+      Object.values(combinedInterpretations.combinations as Record<string, Record<string, string>>).flatMap((entry) =>
+        Object.values(entry).flatMap(sentencesOf),
+      ),
+    );
+    for (const [key, entry] of Object.entries(combinations)) {
+      for (const field of FIELDS) {
+        for (const sentence of sentencesOf(entry[field] as string)) {
+          expect(seen.get(sentence), `${key}.${field}: ${sentence}`).toBeUndefined();
+          expect(summaries.has(sentence), `${key}.${field} 종합 해석과 같음`).toBe(false);
+          seen.set(sentence, key);
+        }
+      }
+    }
+  });
+
+  it("1·2순위를 뒤집은 조합은 항목마다 다른 문안이다", () => {
+    for (const key of expectedKeys) {
+      for (const field of FIELDS) expect(combinations[key][field], key).not.toBe(combinations[key[1] + key[0]][field]);
+    }
+  });
+
+  it("단정·강요·보장 표현과 어려운 용어, 특정 연령대 표현이 없다", () => {
+    const text = JSON.stringify(combinations);
+    for (const banned of ["합격", "보장", "반드시", "적합합니다", "적합한", "해야 합니다", "해야 한다", "틀림없", "확실히", "성격", "RIASEC", "홀랜드", "Holland", "진단"]) {
+      expect(text, banned).not.toContain(banned);
+    }
+    expect(text).not.toMatch(/중장년|장년|고령|시니어|노년|어르신|노인/);
+  });
+
+  it("문장은 '~니다' 또는 '~세요' 로 끝난다", () => {
+    for (const [key, entry] of Object.entries(combinations)) {
+      for (const field of FIELDS) {
+        for (const sentence of sentencesOf(entry[field] as string)) {
+          expect(sentence, `${key}.${field}`).toMatch(/(니다|세요)\.$/);
+        }
+      }
+    }
   });
 });

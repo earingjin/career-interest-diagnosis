@@ -11,6 +11,7 @@ type Props = {
 };
 
 const PAGE_COUNT = 2;
+const MAX_SCORE = 12; // 유형별 일반성향 7문항 + 형용사 5개
 const FOOTER_TEXT = "기관명 · 문의처 자리";
 
 // 서버와 브라우저가 같은 결과를 내도록 시간대를 고정한다.
@@ -118,6 +119,33 @@ function CombinedInterpretation({ view }: { view: ResultView }) {
   );
 }
 
+/** 1·2순위 조합의 상세 해석 세 항목. 모바일은 종합 해석 바로 아래, A4 는 2페이지 아래쪽에 같은 문안으로 둔다. */
+function CombinedDetail({ view }: { view: ResultView }) {
+  const { together, connect, balance } = view.combinedDetail;
+  return (
+    <section className={styles.detail} aria-label="나의 직업흥미 상세 해석">
+      <h2 className={styles.detailTitle}>
+        나의 직업흥미 상세 해석
+        <span className={styles.detailPair}>(1순위 {view.top1.nameKo} + 2순위 {view.top2.nameKo})</span>
+      </h2>
+      <dl className={styles.detailRows}>
+        <div>
+          <dt>두 흥미가 만나면</dt>
+          <dd>{together}</dd>
+        </div>
+        <div>
+          <dt>경험에 연결해 보기</dt>
+          <dd>{connect}</dd>
+        </div>
+        <div>
+          <dt>균형 있게 살펴볼 점</dt>
+          <dd>{balance}</dd>
+        </div>
+      </dl>
+    </section>
+  );
+}
+
 /** 1·2순위에 공통인 안내. 모바일과 A4 모두 결과 전체에 한 번만 보여준다. */
 function CommonNotes({ view }: { view: ResultView }) {
   return (
@@ -165,39 +193,43 @@ function MobileScoreTable({ view }: { view: ResultView }) {
   );
 }
 
-/** A4 에서는 6개 유형을 가로 한 줄로 보여준다. */
-function PrintScoreTable({ view }: { view: ResultView }) {
+/**
+ * A4 에서는 6개 유형을 점수가 높은 순(같으면 RIASEC 순서)의 가로 막대 6줄로 보여준다.
+ * 1·2순위는 색만이 아니라 진한 막대, 굵은 글씨, "1순위/2순위" 글자로 구분해 흑백 인쇄에서도 알아볼 수 있게 한다.
+ */
+function PrintScoreBars({ view }: { view: ResultView }) {
+  const rows = [...view.totals].sort((a, b) => b.total - a.total);
   return (
-    <table className={styles.pTable}>
-      <thead>
-        <tr>
-          {view.totals.map((row) => (
-            <th
+    <section className={styles.pScores} aria-label="전체 점수표">
+      <h2 className={styles.pSectionTitle}>
+        유형별 점수 <span className={styles.pSectionNote}>(만점 {MAX_SCORE}점 · 일반 + 형용사)</span>
+      </h2>
+      <ol className={styles.pBars}>
+        {rows.map((row) => {
+          const rank = rankLabel(view, row.type);
+          return (
+            <li
               key={row.type}
               data-score-row={row.type}
               data-emphasized={row.emphasized ? "true" : "false"}
-              scope="col"
-              className={row.emphasized ? styles.cellEmphasized : undefined}
+              className={`${styles.pBar} ${row.emphasized ? styles.pBarEmphasized : ""}`}
             >
-              {row.type} {row.nameKo}
-              {row.emphasized && <span className={styles.pRank}>{rankLabel(view, row.type)}</span>}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          {view.totals.map((row) => (
-            <td key={row.type} className={row.emphasized ? styles.cellEmphasized : undefined}>
-              <strong>{row.total}점</strong>
+              <span className={styles.pBarName}>
+                {row.type} {row.nameKo}
+                {rank && <span className={`${styles.pRank} ${rank === "1순위" ? styles.pRankFirst : styles.pRankSecond}`}>{rank}</span>}
+              </span>
+              <span className={styles.pBarTrack} aria-hidden="true">
+                <span className={styles.pBarFill} style={{ width: `${(Math.min(row.total, MAX_SCORE) / MAX_SCORE) * 100}%` }} />
+              </span>
+              <strong className={styles.pBarScore}>{row.total}점</strong>
               <span className={styles.pParts}>
                 일반 {row.general} + 형용사 {row.adjective}
               </span>
-            </td>
-          ))}
-        </tr>
-      </tbody>
-    </table>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 
@@ -221,12 +253,17 @@ function MobileLayout({ view }: Pick<Props, "view">) {
 
       <CombinedInterpretation view={view} />
 
-      <section className={styles.mSection}>
-        <h2 className={styles.mHeading}>전체 점수표</h2>
-        <MobileScoreTable view={view} />
-      </section>
+      <CombinedDetail view={view} />
 
-      <CommonNotes view={view} />
+      <details className={styles.scoreDropdown}>
+        <summary>
+          <span className={styles.mHeading}>전체 점수표</span>
+          <span className={styles.scoreDropdownIcon} aria-hidden="true">⌄</span>
+        </summary>
+        <div className={styles.scoreDropdownContent}>
+          <MobileScoreTable view={view} />
+        </div>
+      </details>
 
       {([view.top1, view.top2] as const).map((section, index) => (
         <section key={section.type} className={styles.mSection} aria-label={`${index + 1}순위 상세 해설`}>
@@ -235,6 +272,8 @@ function MobileLayout({ view }: Pick<Props, "view">) {
           <GroupList section={section} />
         </section>
       ))}
+
+      <CommonNotes view={view} />
 
       <div className={styles.mFooter}>
         <Link href="/" className={styles.backButton}>홈으로</Link>
@@ -254,26 +293,80 @@ function PageFooter({ page }: { page: number }) {
   );
 }
 
-function PrintColumn({ section, rank }: { section: ResultTypeSection; rank: 1 | 2 }) {
+/**
+ * A4 2페이지의 순위별 가로 띠: 머리줄 → 3열 본문 → 추천직업 줄 → 확인사항 줄.
+ * 본문 3열과 확인사항은 view 의 groups 를 그대로 쓴다. "추천직업과 확인사항" 묶음은 아래 두 줄로 나누어 보여준다.
+ */
+function PrintBand({ section, rank }: { section: ResultTypeSection; rank: 1 | 2 }) {
+  const columns = section.groups.filter((group) => group.id !== "jobs");
+  const jobsGroup = section.groups.find((group) => group.id === "jobs");
   return (
-    <div className={styles.pColumn}>
-      <SummaryCard section={section} rank={rank} />
-      <GroupList section={section} />
-    </div>
+    <section
+      className={`${styles.band} ${rank === 1 ? styles.bandFirst : styles.bandSecond}`}
+      aria-label={`${rank}순위 상세 해설`}
+    >
+      <header className={styles.bandHead}>
+        <span className={styles.bandRank}>{rank}순위</span>
+        <h3 className={styles.bandName}>
+          {section.nameKo}
+          <span className={styles.bandEn}>{section.nameEn}</span>
+        </h3>
+        <p className={styles.bandKeywords}>{section.keywords}</p>
+      </header>
+
+      <div className={styles.bandBody}>
+        {columns.map((group) => (
+          <section key={group.id} className={styles.bandColumn}>
+            <h4 className={styles.bandColumnTitle}>{group.title}</h4>
+            <dl className={styles.bandItems}>
+              {group.items.map((item) => (
+                <div key={item.label}>
+                  <dt>{item.label}</dt>
+                  <dd>{item.text}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ))}
+      </div>
+
+      <div className={styles.bandJobs}>
+        <p className={styles.bandRowLabel}>추천직업</p>
+        <ol className={styles.chips} aria-label="추천직업">
+          {section.jobs.map((job) => (
+            <li key={job}>{job}</li>
+          ))}
+        </ol>
+      </div>
+
+      {jobsGroup && (
+        <dl className={styles.bandCheck}>
+          {jobsGroup.items.map((item) => (
+            <div key={item.label}>
+              <dt className={styles.bandRowLabel}>{item.label}</dt>
+              <dd>{item.text}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </section>
   );
 }
 
 /**
- * A4 두 장. 1페이지: 결과 점수와 종합 해석, 2페이지: 1·2순위 상세 해설.
+ * A4 두 장. 1페이지: 결과 점수와 종합 해석, 2페이지: 1·2순위 상세 해설과 조합 상세 해석.
  * 각 페이지는 고정 크기이며 인쇄할 때 1페이지 뒤에서 페이지를 나눈다.
+ * 남는 높이는 빈 곳으로 모으지 않고 점수 막대·띠·상세 해석 영역의 높이로 나누어 흡수한다.
  */
 function PrintLayout({ view }: { view: ResultView }) {
   return (
     <div className={styles.sheets} data-print-sheet="true">
       <section className={`${styles.sheet} ${styles.page1}`} data-print-page="1" aria-label="1페이지 나의 직업흥미 결과">
         <header className={styles.pHeader}>
-          <p className={styles.pKicker}>나의 직업흥미 결과</p>
-          <h1 className={styles.pTitle}>직업선호도 검사 결과</h1>
+          <div>
+            <p className={styles.pKicker}>직업흥미 탐색 진단</p>
+            <h1 className={styles.pTitle}>나의 직업흥미 결과</h1>
+          </div>
           <p className={styles.pInfo}>
             <span>닉네임: {view.nickname}</span>
             <span>검사일: {formatDate(view.submittedAt)}</span>
@@ -281,17 +374,15 @@ function PrintLayout({ view }: { view: ResultView }) {
         </header>
 
         <div className={styles.pOverview}>
+          <RankSummary view={view} />
           <div className={styles.pHexagon}>
             <ResultHexagon totals={view.totals} />
           </div>
-          <RankSummary view={view} />
         </div>
 
         <CombinedInterpretation view={view} />
 
-        <section className={styles.pScores} aria-label="전체 점수표">
-          <PrintScoreTable view={view} />
-        </section>
+        <PrintScoreBars view={view} />
 
         <CommonNotes view={view} />
 
@@ -300,17 +391,17 @@ function PrintLayout({ view }: { view: ResultView }) {
 
       <section className={`${styles.sheet} ${styles.page2}`} data-print-page="2" aria-label="2페이지 나의 직업흥미 상세 해설">
         <header className={styles.pHeader}>
-          <h2 className={styles.pPageTitle}>나의 직업흥미 상세 해설</h2>
-          <p className={styles.pInfo}>
+          <h2 className={styles.pTitle}>나의 직업흥미 상세 해설</h2>
+          <p className={`${styles.pInfo} ${styles.pInfoInline}`}>
             <span>닉네임: {view.nickname}</span>
             <span>1순위 {view.top1.nameKo} · 2순위 {view.top2.nameKo}</span>
           </p>
         </header>
 
-        <div className={styles.pColumns}>
-          <PrintColumn section={view.top1} rank={1} />
-          <PrintColumn section={view.top2} rank={2} />
-        </div>
+        <CombinedDetail view={view} />
+
+        <PrintBand section={view.top1} rank={1} />
+        <PrintBand section={view.top2} rank={2} />
 
         <PageFooter page={2} />
       </section>

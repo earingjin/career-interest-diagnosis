@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import combinedDetails from "../../../content/combined-details.json";
 import combinedInterpretations from "../../../content/combined-interpretations.json";
 import interpretations from "../../../content/interpretations.json";
 import { RIASEC_ORDER, type RiasecType } from "../../../content/types";
@@ -40,6 +41,7 @@ const base = (result: ResultRow) => ({
   submittedAt: "2026-10-15T03:04:05.000Z",
   interpretations,
   combinedInterpretations,
+  combinedDetails,
 });
 
 // S 10점, E 8점, C 3점
@@ -238,7 +240,7 @@ describe("buildResultView: 민감한 값", () => {
 
   it("최상위 키는 화면에 쓰는 값뿐이고 원본 results 행의 키가 없다", () => {
     expect(Object.keys(view).sort()).toEqual(
-      ["combinedInterpretation", "commonNotes", "courseName", "nickname", "scoringVersion", "submittedAt", "top1", "top2", "totals"].sort(),
+      ["combinedDetail", "combinedInterpretation", "commonNotes", "courseName", "nickname", "scoringVersion", "submittedAt", "top1", "top2", "totals"].sort(),
     );
     const json = JSON.stringify(view);
     for (const column of ["general_scores", "adjective_scores", "job_recommendations", "tie_broken"]) {
@@ -291,5 +293,46 @@ describe("buildResultView: 1·2순위 종합 해석", () => {
     expect(() => buildResultView({ ...base(normalRow()), combinedInterpretations: blank })).toThrow(ResultViewError);
     const inherited = { combinations: Object.create({ SE: combinedInterpretations.combinations.SE }) };
     expect(() => buildResultView({ ...base(normalRow()), combinedInterpretations: inherited })).toThrow(ResultViewError);
+  });
+});
+
+describe("buildResultView: 1·2순위 상세 해석", () => {
+  const combinationsOf = () =>
+    RIASEC_ORDER.flatMap((a) => RIASEC_ORDER.filter((b) => b !== a).map((b) => [a, b] as const));
+  const rowFor = (a: RiasecType, b: RiasecType) => makeRow({ [a]: 7, [b]: 5 }, { [a]: 2, [b]: 1 }, a, b);
+  const all = combinedDetails.combinations as Record<string, Record<string, string>>;
+
+  it("1순위+2순위 키의 세 항목(together·connect·balance)만 담는다", () => {
+    const view = buildResultView(base(normalRow()));
+    expect(view.combinedDetail).toEqual(all.SE);
+    expect(Object.keys(view.combinedDetail).sort()).toEqual(["balance", "connect", "together"]);
+  });
+
+  it("30개 조합 모두 조회되고, 순서를 뒤집으면 다른 문안이며, 다른 조합 문안은 뷰에 없다", () => {
+    const keys = combinationsOf().map(([a, b]) => a + b);
+    for (const [a, b] of combinationsOf()) {
+      const view = buildResultView(base(rowFor(a, b)));
+      expect(view.combinedDetail, a + b).toEqual(all[a + b]);
+      expect(view.combinedDetail, a + b).not.toEqual(all[b + a]);
+      const json = JSON.stringify(view);
+      for (const other of keys.filter((key) => key !== a + b)) {
+        for (const text of Object.values(all[other])) expect(json, `${a + b} 에 ${other}`).not.toContain(text);
+      }
+    }
+  });
+
+  it("관리용 메타 정보(version·reviewStatus)는 뷰에 담기지 않는다", () => {
+    const json = JSON.stringify(buildResultView(base(normalRow())));
+    expect(json).not.toContain("reviewStatus");
+    expect(json).not.toContain("draft-needs-review");
+  });
+
+  it("상세 해석이 없거나 비어 있으면 ResultViewError 로 거부한다", () => {
+    const missing = { combinations: { ...combinedDetails.combinations, SE: undefined } } as never;
+    expect(() => buildResultView({ ...base(normalRow()), combinedDetails: missing })).toThrow(/SE 조합의 상세 해석/);
+    const blank = { combinations: { SE: { together: "a", connect: " ", balance: "b" } } };
+    expect(() => buildResultView({ ...base(normalRow()), combinedDetails: blank })).toThrow(ResultViewError);
+    const inherited = { combinations: Object.create({ SE: combinedDetails.combinations.SE }) };
+    expect(() => buildResultView({ ...base(normalRow()), combinedDetails: inherited })).toThrow(ResultViewError);
   });
 });
