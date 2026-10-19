@@ -1,7 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import type { ResultTypeSection, ResultView } from "@/lib/result/view";
+import { RIASEC_ORDER } from "@/content/types";
+import { classifyHexagon } from "@/lib/result/hexagon";
+import { TYPE_DESCRIPTIONS, TYPE_DESCRIPTIONS_TITLE } from "@/lib/result/typeDescriptions";
 import { ResultHexagon } from "./ResultHexagon";
 import styles from "./result.module.css";
 
@@ -11,8 +15,6 @@ type Props = {
 };
 
 const PAGE_COUNT = 2;
-const MAX_SCORE = 12; // 유형별 일반성향 7문항 + 형용사 5개
-const FOOTER_TEXT = "기관명 · 문의처 자리";
 
 // 서버와 브라우저가 같은 결과를 내도록 시간대를 고정한다.
 function formatDate(iso: string): string {
@@ -166,9 +168,7 @@ function MobileScoreTable({ view }: { view: ResultView }) {
       <thead>
         <tr>
           <th scope="col">유형</th>
-          <th scope="col">합계</th>
-          <th scope="col">일반성향</th>
-          <th scope="col">형용사</th>
+          <th scope="col">설명</th>
         </tr>
       </thead>
       <tbody>
@@ -184,9 +184,7 @@ function MobileScoreTable({ view }: { view: ResultView }) {
               {row.type} {row.nameKo}
               {row.emphasized && <span className={styles.rankBadge}>{rankLabel(view, row.type)}</span>}
             </th>
-            <td>{row.total}점</td>
-            <td>{row.general}</td>
-            <td>{row.adjective}</td>
+            <td>{TYPE_DESCRIPTIONS[row.type]}</td>
           </tr>
         ))}
       </tbody>
@@ -194,42 +192,43 @@ function MobileScoreTable({ view }: { view: ResultView }) {
   );
 }
 
-/**
- * A4 에서는 6개 유형을 점수가 높은 순(같으면 RIASEC 순서)의 가로 막대 6줄로 보여준다.
- * 1·2순위는 색만이 아니라 진한 막대, 굵은 글씨, "1순위/2순위" 글자로 구분해 흑백 인쇄에서도 알아볼 수 있게 한다.
- */
-function PrintScoreBars({ view }: { view: ResultView }) {
-  const rows = [...view.totals].sort((a, b) => b.total - a.total);
+/** A4 shows all six descriptions, with the original top-two emphasis. */
+function PrintScoreTable({ view }: { view: ResultView }) {
   return (
-    <section className={styles.pScores} aria-label="전체 점수표">
-      <h2 className={styles.pSectionTitle}>
-        유형별 점수 <span className={styles.pSectionNote}>(만점 {MAX_SCORE}점 · 일반 + 형용사)</span>
-      </h2>
-      <ol className={styles.pBars}>
-        {rows.map((row) => {
+    <section className={styles.typeDescriptions} aria-label={TYPE_DESCRIPTIONS_TITLE}>
+      <h2 className={styles.pSectionTitle}>{TYPE_DESCRIPTIONS_TITLE}</h2>
+      <ol className={styles.typeDescriptionList}>
+        {view.totals.map((row) => {
           const rank = rankLabel(view, row.type);
           return (
             <li
               key={row.type}
               data-score-row={row.type}
               data-emphasized={row.emphasized ? "true" : "false"}
-              className={`${styles.pBar} ${row.emphasized ? styles.pBarEmphasized : ""}`}
+              className={row.emphasized ? styles.typeDescriptionEmphasized : undefined}
             >
               <span className={styles.pBarName}>
                 {row.type} {row.nameKo}
-                {rank && <span className={`${styles.pRank} ${rank === "1순위" ? styles.pRankFirst : styles.pRankSecond}`}>{rank}</span>}
               </span>
-              <span className={styles.pBarTrack} aria-hidden="true">
-                <span className={styles.pBarFill} style={{ width: `${(Math.min(row.total, MAX_SCORE) / MAX_SCORE) * 100}%` }} />
-              </span>
-              <strong className={styles.pBarScore}>{row.total}점</strong>
-              <span className={styles.pParts}>
-                일반 {row.general} + 형용사 {row.adjective}
-              </span>
+              <span>{TYPE_DESCRIPTIONS[row.type]}</span>
+              {rank && <span className={`${styles.pRank} ${rank === "1순위" ? styles.pRankFirst : styles.pRankSecond}`}>{rank}</span>}
             </li>
           );
         })}
       </ol>
+    </section>
+  );
+}
+
+function HexagonInterpretation({ view }: { view: ResultView }) {
+  const scores = Object.fromEntries(RIASEC_ORDER.map((type) => [type, totalOf(view, type)])) as Record<(typeof RIASEC_ORDER)[number], number>;
+  const feedback = classifyHexagon(scores);
+  return (
+    <section className={styles.hexagonInterpretation} aria-label="나의 흥미육각 모형 해석" data-hexagon-shape={feedback.key}>
+      <h2>나의 흥미육각 모형 해석</h2>
+      <p className={styles.hexagonShape}>{feedback.shape}</p>
+      <p>{feedback.description}</p>
+      <p>진로 탐색 제안: {feedback.exploration}</p>
     </section>
   );
 }
@@ -254,14 +253,16 @@ function MobileLayout({ view }: Pick<Props, "view">) {
 
       <CombinedInterpretation view={view} />
 
+      <HexagonInterpretation view={view} />
+
       <CombinedDetail view={view} />
 
       <details className={styles.scoreDropdown}>
         <summary>
-          <span className={styles.mHeading}>전체 점수표</span>
+          <span className={styles.mHeading}>{TYPE_DESCRIPTIONS_TITLE}</span>
           <span className={styles.scoreDropdownIcon} aria-hidden="true">⌄</span>
         </summary>
-        <div className={styles.scoreDropdownContent} role="region" aria-label="전체 점수표" tabIndex={0}>
+        <div className={styles.scoreDropdownContent} role="region" aria-label={TYPE_DESCRIPTIONS_TITLE} tabIndex={0}>
           <MobileScoreTable view={view} />
         </div>
       </details>
@@ -286,7 +287,7 @@ function MobileLayout({ view }: Pick<Props, "view">) {
 function PageFooter({ page }: { page: number }) {
   return (
     <footer className={styles.pFooter}>
-      <span>{FOOTER_TEXT}</span>
+      <Image src="/jm-career-logo.png" width={669} height={188} alt="제이엠커리어" className={styles.footerLogo} />
       <span className={styles.pPageNumber}>
         {page} / {PAGE_COUNT}
       </span>
@@ -383,7 +384,9 @@ function PrintLayout({ view }: { view: ResultView }) {
 
         <CombinedInterpretation view={view} />
 
-        <PrintScoreBars view={view} />
+        <HexagonInterpretation view={view} />
+
+        <PrintScoreTable view={view} />
 
         <CommonNotes view={view} />
 

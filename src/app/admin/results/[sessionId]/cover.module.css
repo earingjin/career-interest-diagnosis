@@ -1,0 +1,168 @@
+.cover {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: 210mm;
+  height: 296mm;
+  padding: 18mm 18mm 14mm;
+  overflow: hidden;
+  color: #132a4a;
+  background: #ffffff;
+  border: 1px solid #e1e8f0;
+  font-family: Arial, "Malgun Gothic", sans-serif;
+}
+
+.cover,
+.cover * {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 7mm;
+  border-bottom: 0.7mm solid #173d6b;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 3mm;
+  font-size: 13pt;
+  font-weight: 700;
+  letter-spacing: -0.2pt;
+}
+
+.shield {
+  width: 8mm;
+  height: auto;
+  fill: #173d6b;
+  stroke: #ffffff;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.documentLabel {
+  font-size: 8.5pt;
+  font-weight: 700;
+  letter-spacing: 1.2pt;
+  color: #5d7088;
+}
+
+.content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 12mm;
+  text-align: center;
+}
+
+.lockIcon {
+  width: 24mm;
+  margin-bottom: 9mm;
+  color: #173d6b;
+}
+
+.lockIcon svg {
+  display: block;
+  width: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.kicker {
+  font-size: 10pt;
+  font-weight: 700;
+  letter-spacing: 1.7pt;
+  color: #46698f;
+}
+
+.content h1 {
+  margin-top: 5mm;
+  font-size: 31pt;
+  font-weight: 800;
+  letter-spacing: -1.5pt;
+  line-height: 1.2;
+}
+
+.tagline {
+  margin-top: 7mm;
+  font-size: 12.5pt;
+  line-height: 1.7;
+  color: #53677f;
+}
+
+.footer {
+  flex: none;
+}
+
+.meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-top: 0.4mm solid #aebdcd;
+  border-bottom: 0.4mm solid #aebdcd;
+}
+
+.meta > div {
+  display: grid;
+  grid-template-columns: 16mm minmax(0, 1fr);
+  gap: 2mm;
+  align-items: center;
+  min-height: 12mm;
+}
+
+.meta > div + div {
+  padding-left: 6mm;
+  border-left: 0.3mm solid #d6dfe8;
+}
+
+.meta dt {
+  font-size: 10.5pt;
+  font-weight: 700;
+  color: #48617d;
+}
+
+.meta dd {
+  min-width: 0;
+  font-size: 11pt;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.privacyNotice {
+  margin-top: 6mm;
+  padding: 4mm 5mm;
+  font-size: 9.5pt;
+  line-height: 1.6;
+  color: #3e536d;
+  background: #f0f5fa;
+  border-left: 1.2mm solid #173d6b;
+}
+
+.footerBrand {
+  margin-top: 7mm;
+  font-size: 9.5pt;
+  font-weight: 700;
+  letter-spacing: 0.1pt;
+  color: #526985;
+  text-align: center;
+}
+
+.footerBrand span {
+  margin: 0 2mm;
+  color: #97a8ba;
+}
+
+@media print {
+  .cover {
+    break-after: page;
+  }
+}

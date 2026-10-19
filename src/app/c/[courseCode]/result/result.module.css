@@ -1016,6 +1016,13 @@
   border-top: 0.2mm solid var(--line);
 }
 
+.footerLogo {
+  display: block;
+  width: 32mm;
+  height: auto;
+  object-fit: contain;
+}
+
 .pPageNumber {
   font-weight: 700;
 }
@@ -1131,7 +1138,7 @@
   }
 
   .mobile .ranks {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1rem;
   }
 
@@ -1229,7 +1236,7 @@
   }
 
   .mobile .table {
-    min-width: 23rem;
+    min-width: 0;
     font-size: 1.0625rem;
     font-variant-numeric: tabular-nums;
   }
@@ -1325,4 +1332,188 @@
     outline: 3px solid #315b9a;
     outline-offset: 3px;
   }
+}
+
+/* Beta results: shared interpretation and six-type reference. */
+.hexagonInterpretation {
+  padding: 1.25rem;
+  color: var(--text);
+  background: #edf3fb;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+}
+
+.hexagonInterpretation h2 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #203654;
+}
+
+.hexagonInterpretation p + p {
+  margin-top: 0.5rem;
+}
+
+.hexagonShape {
+  margin-top: 0.5rem;
+  font-weight: 700;
+  color: #2856bc;
+}
+
+.mobile .rank {
+  padding: 1rem 0.75rem;
+}
+
+.mobile .rankName {
+  font-size: 1.5rem;
+}
+
+.mobile .rankEn {
+  overflow-wrap: anywhere;
+}
+
+.mobile .table th,
+.mobile .table td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+
+.mobile .table th:first-child {
+  width: 6.5rem;
+}
+
+.page1 {
+  gap: 6mm;
+  padding-top: 8mm;
+  padding-bottom: 6mm;
+}
+
+.page1 .pOverview {
+  display: grid;
+  grid-template-columns: minmax(0, 38fr) minmax(0, 62fr);
+  gap: 6mm;
+  align-items: stretch;
+  min-height: 60mm;
+}
+
+.page1 .pOverview .ranks {
+  display: flex;
+  flex-direction: column;
+  gap: 3mm;
+}
+
+.page1 .pOverview .rank {
+  flex: 1 1 0;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 3mm 4mm;
+}
+
+.page1 .pHexagon {
+  width: auto;
+  padding: 0 3mm;
+}
+
+.page1 .pHexagon svg {
+  max-width: 60mm !important;
+}
+
+.sheet .ranks {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3mm;
+}
+
+.sheet .rank {
+  padding: 2mm 4mm;
+}
+
+.sheet .rank.cardSecond {
+  background: #ffffff;
+}
+
+.sheet .hexagonInterpretation {
+  flex: none;
+  padding: 3.2mm 4mm;
+  border-radius: 2mm;
+  font-size: 11pt;
+  line-height: 1.55;
+}
+
+.page1 .hexagonInterpretation {
+  margin-top: 0;
+}
+
+.sheet .hexagonInterpretation h2 {
+  display: inline;
+  margin-right: 3mm;
+  font-size: 12.5pt;
+}
+
+.sheet .hexagonShape {
+  display: inline;
+}
+
+.sheet .hexagonInterpretation p,
+.sheet .hexagonShape {
+  margin-top: 0.8mm;
+}
+
+.page1 .combined {
+  margin-top: 0;
+  padding: 3.2mm 4mm;
+}
+
+.page1 .combinedRows {
+  gap: 1mm;
+  margin-top: 1mm;
+  font-size: 11pt;
+  line-height: 1.55;
+}
+
+.typeDescriptions {
+  flex: none;
+  margin-top: 1mm;
+}
+
+.typeDescriptionList {
+  margin-top: 1mm;
+  padding: 0;
+  list-style: none;
+  border-top: 0.3mm solid var(--line);
+}
+
+.typeDescriptionList > li {
+  display: grid;
+  grid-template-columns: 36mm minmax(0, 1fr) 15mm;
+  align-items: center;
+  gap: 2mm;
+  padding: 1.3mm 1.5mm;
+  border-bottom: 0.3mm solid var(--line);
+  font-size: 10.5pt;
+  line-height: 1.4;
+}
+
+.typeDescriptionList .pRank {
+  justify-self: end;
+  white-space: nowrap;
+}
+
+.typeDescriptionList .pBarName {
+  flex-wrap: wrap;
+  gap: 1mm;
+}
+
+.typeDescriptionEmphasized {
+  background: var(--bg-accent);
+}
+
+.typeDescriptionEmphasized .pBarName {
+  font-weight: 800;
+  color: var(--border-accent);
+}
+
+.page1 .notes {
+  margin-top: 1mm;
+  padding: 3.2mm 4mm;
 }

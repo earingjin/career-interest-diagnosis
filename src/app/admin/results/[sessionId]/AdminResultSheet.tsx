@@ -6,12 +6,13 @@ import { ResultScreen } from "@/app/c/[courseCode]/result/ResultScreen";
 import resultStyles from "@/app/c/[courseCode]/result/result.module.css";
 import type { ResultView } from "@/lib/result/view";
 import adminStyles from "../../admin.module.css";
+import { AdminResultCover } from "./AdminResultCover";
 import styles from "./detail.module.css";
 
 // A4 를 96dpi 로 환산한 크기(px). 좁은 화면에서는 미리보기를 이 비율로 줄여 보여준다.
 const A4_WIDTH_PX = 794;
 const SHEET_HEIGHT_PX = 1119; // 결과지 한 장(296mm)
-const PAGE_COUNT = 2;
+const PAGE_COUNT = 3;
 const PAGE_GAP_PX = 16; // result.module.css 의 .sheets gap 과 같다
 const PREVIEW_HEIGHT_PX = SHEET_HEIGHT_PX * PAGE_COUNT + PAGE_GAP_PX * (PAGE_COUNT - 1);
 const GUTTER_PX = 24;
@@ -64,7 +65,10 @@ export function AdminResultSheet({ view, listHref }: Props) {
           style={{ width: A4_WIDTH_PX * scale, height: PREVIEW_HEIGHT_PX * scale }}
         >
           <div className={resultStyles.previewScale} style={{ height: PREVIEW_HEIGHT_PX, transform: `scale(${scale})` }}>
-            <ResultScreen view={view} mode="print" />
+            <div className={styles.previewPages}>
+              <AdminResultCover view={view} />
+              <ResultScreen view={view} mode="print" />
+            </div>
           </div>
         </div>
       </div>
