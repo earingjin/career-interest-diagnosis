@@ -17,7 +17,10 @@ export function normalizeJobName(name: string): string {
 
 export type TakenJobs = { names: Set<string>; keys: Set<string> };
 
-/** PDF에 나온 유형별 순서를 유지하면서, 이미 뽑힌 직업은 1순위에서만 사용한다. */
+/**
+ * 대표 목록(최신 PDF 원문 → 개정판 신규 우선)을 rank 순서대로, 그다음 예비 후보(supplements, 다양성 순서)를 고른다.
+ * 이미 뽑힌 직업은 1순위에서만 사용한다.
+ */
 export function pickCatalogJobs(
   type: RiasecType,
   catalog: JobCatalog,
@@ -27,9 +30,13 @@ export function pickCatalogJobs(
   const sources = new Map(catalog.sources.map((source) => [source.id, source]));
   const displays = new Map(catalog.display.map((display) => [display.id, display]));
   const picked: JobCatalogDisplay[] = [];
-  for (const entry of [...(catalog.representatives[type] ?? [])].sort((a, b) => a.rank - b.rank)) {
+  const ordered = [
+    ...[...(catalog.representatives[type] ?? [])].sort((a, b) => a.rank - b.rank).map((entry) => entry.displayId),
+    ...(catalog.supplements[type] ?? []),
+  ];
+  for (const displayId of ordered) {
     if (picked.length >= limit) break;
-    const display = displays.get(entry.displayId);
+    const display = displays.get(displayId);
     const source = display && sources.get(display.sourceId);
     if (!display || !source || source.status !== "active" || source.type !== type || display.displayReview !== "approved" || display.name !== source.rawName) continue;
     const name = normalizeJobName(display.name);

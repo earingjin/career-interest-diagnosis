@@ -6,6 +6,7 @@ import { JOB_CATALOG_VERSION } from "../version";
 const LOCK: Record<string, string> = {
   "0.2.0": "7d14b1a2bb4cd0482ddf76125c4dcfef101d5206d19fad2f4bbfae214f3d6bda",
   "1.0.0": "26a44f18e551640d3536a8efba50c75d8ba24cd1b4e68dbc96b9c25730b0b779",
+  "1.1.0": "419eb7999b8f9da4a50043c139ba4796be0f85fbb7a2a84343299d0970456495",
 };
 
 function canonical(value: unknown): string {

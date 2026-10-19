@@ -167,8 +167,8 @@ describe("selectJobs", () => {
 });
 
 describe("결과 계산 버전 (results.scoring_version)", () => {
-  it("추천직업 선정 규칙이 카탈로그 대표 우선으로 바뀐 것을 구분하도록 1.2.0 이다", () => {
-    expect(SCORING_VERSION).toBe("1.3.0");
+  it("개정판 신규 우선·후순위 추가로 추천직업 선정 규칙이 바뀐 것을 구분하도록 1.4.0 이다", () => {
+    expect(SCORING_VERSION).toBe("1.4.0");
     expect(SCORING_VERSION).toMatch(/^[0-9]+[.][0-9]+[.][0-9]+$/);
   });
 

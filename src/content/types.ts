@@ -41,9 +41,14 @@ export type JobCatalogSource = {
   id: string;
   type: RiasecType;
   rawName: string;
-  origin: "body";
+  origin: "body" | "revised-body" | "revised-appendix";
   status: "active";
   needsCheck: { confirmed: boolean } | null;
+  // 아래는 개정판에서 추가한 직업에만 있다. tier 가 없으면 추천직업최신.pdf 원문 직업이다.
+  tier?: "priority" | "reserve";
+  document?: string;
+  page?: number;
+  jobGroup?: string;
 };
 
 export type JobCatalogDisplay = {
@@ -60,6 +65,8 @@ export type JobCatalog = {
   version: string;
   reviewStatus: string;
   document?: { file: string; sha256: string; note: string };
+  revisedDocument?: { file: string; sha256: string };
+  review?: { file: string; sheet: string; note: string };
   sources: JobCatalogSource[];
   display: JobCatalogDisplay[];
   representatives: Record<RiasecType, { rank: number; displayId: string }[]>;

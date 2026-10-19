@@ -1052,14 +1052,24 @@
   line-height: 1.3;
 }
 
+/* 해설 3열은 내용 높이만 차지하고, 남는 세로 공간은 추천직업 줄이 가져간다. */
+.page2 .bandBody {
+  flex: 0 0 auto;
+}
+
 .page2 .bandJobs {
+  flex: 1 0 auto;
   align-items: flex-start;
   gap: 2mm;
   padding: 1.5mm 3mm;
 }
 
 .page2 .chips {
-  gap: 0.6mm 2.5mm;
+  gap: 0.6mm 1.8mm;
+}
+
+.page2 .chips li:not(:last-child)::after {
+  content: ",";
 }
 
 .page2 .chips li {

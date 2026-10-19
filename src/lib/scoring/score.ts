@@ -41,8 +41,8 @@ export type ScoreResult = {
 export type JobSource = Pick<TypeInterpretation, "seniorJobs" | "generalJobs">;
 
 export const MIN_ADJECTIVES = 5;
-// 30개 순위 조합의 A4 인쇄 수용량으로 검증하는 유형별 상한.
-export const JOBS_PER_TYPE: Record<RiasecType, number> = { R: 12, I: 9, A: 8, S: 16, E: 17, C: 10 };
+// 30개 순위 조합의 A4 인쇄 수용량으로 검증하는 유형별 상한(최신 + 신규 우선 + 신규 후순위).
+export const JOBS_PER_TYPE: Record<RiasecType, number> = { R: 26, I: 9, A: 8, S: 34, E: 26, C: 15 };
 
 export class SubmissionError extends Error {
   constructor(message: string) {
@@ -116,7 +116,7 @@ export function validateSubmission(general: GeneralAnswers, adjectives: Adjectiv
 
 /**
  * 1순위 유형부터 유형당 최대 JOBS_PER_TYPE 개의 추천직업을 뽑는다.
- * 최신 PDF의 유형별 직업을 원문 순서대로 선정한다. 상한은 limit 인자로 조정한다.
+ * 최신 PDF의 유형별 직업을 원문 순서대로, 이어서 개정판 신규 우선과 신규 후순위(다양성 순서)를 선정한다. 상한은 limit 인자로 조정한다.
  * 기존 해설의 seniorJobs/generalJobs는 추천 후보로 사용하지 않는다.
  * 각 유형의 목록은 상대 유형과 무관하게 고정한다. 생략 여부도 결과에 저장한다.
  */
