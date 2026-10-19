@@ -68,7 +68,7 @@ export function EntryForm({ courseCode }: { courseCode: string }) {
           성명
         </label>
         <span className={styles.hint} id="nickname-hint">
-          2~10자, 한글·영문·숫자만 쓸 수 있어요
+          2~10자로 작성해주세요.
         </span>
         <input
           id="nickname"
@@ -93,8 +93,12 @@ export function EntryForm({ courseCode }: { courseCode: string }) {
 
       <div className={styles.field}>
         <label className={styles.label} htmlFor="phoneLast4">
-          휴대폰 뒷자리 4자리
+          휴대폰 뒷번호 4자리
+        
         </label>
+        <span className={styles.hint} id="phoneLast4-hint">
+          성명이 동일한 다른 참여자와 구분하기 위해 필요해요. 숫자만 입력해 주세요.
+        </span>
         <input
           id="phoneLast4"
           ref={phoneRef}

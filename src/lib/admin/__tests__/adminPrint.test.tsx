@@ -48,6 +48,20 @@ const read = (relative: string) => readFileSync(path.join(process.cwd(), relativ
 const detailCss = read("src/app/admin/results/[sessionId]/detail.module.css");
 const resultCss = read("src/app/c/[courseCode]/result/result.module.css");
 
+it("추천직업 일부를 생략한 경우에만 모바일과 A4의 마지막 항목에 등을 붙인다", () => {
+  const partial = {
+    ...view,
+    top1: { ...view.top1, jobs: ["원문 복합·직업명"], jobsTruncated: true },
+    top2: { ...view.top2, jobs: ["전체 표시 직업"], jobsTruncated: false },
+  };
+  for (const mode of ["mobile", "print"] as const) {
+    const markup = renderToStaticMarkup(<ResultScreen view={partial} mode={mode} />);
+    expect(markup).toContain("원문 복합·직업명 등</li>");
+    expect(markup).toContain("전체 표시 직업</li>");
+    expect(markup).not.toContain("전체 표시 직업 등");
+  }
+});
+
 describe("관리자 상세 화면: 인쇄에서 제외되는 UI", () => {
   it("도구 줄(목록 이동·인쇄 버튼·안내)에 인쇄 제외 표식이 있다", () => {
     expect(chromePart).toContain('data-admin-chrome="true"');

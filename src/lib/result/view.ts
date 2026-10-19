@@ -68,6 +68,7 @@ export type ResultTypeSection = {
   keywords: string;
   groups: ResultGroup[];
   jobs: string[];
+  jobsTruncated?: boolean;
 };
 
 export type ResultTotalRow = {
@@ -145,7 +146,7 @@ function readScores(value: unknown, name: string): Record<RiasecType, number> {
   return scores;
 }
 
-function readJobs(value: unknown, type: RiasecType): string[] {
+function readJobs(value: unknown, type: RiasecType): Pick<ResultTypeSection, "jobs" | "jobsTruncated"> {
   if (!Array.isArray(value)) throw new ResultViewError("job_recommendations 형식이 올바르지 않습니다.");
   const entry = value.find((item) => typeof item === "object" && item !== null && item.type === type);
   if (!entry || !Array.isArray(entry.jobs) || entry.jobs.some((job: unknown) => typeof job !== "string")) {
@@ -155,7 +156,7 @@ function readJobs(value: unknown, type: RiasecType): string[] {
   if (entry.count !== undefined && entry.count !== jobs.length) {
     throw new ResultViewError(`${type} 유형의 추천직업 개수(count)가 목록과 다릅니다.`);
   }
-  return jobs;
+  return { jobs, jobsTruncated: entry.hasMore === true };
 }
 
 function buildSection(
@@ -177,7 +178,7 @@ function buildSection(
       title: group.title,
       items: group.items.map(([label, field]) => ({ label, text: interpretation[field] })),
     })),
-    jobs: readJobs(jobRecommendations, type),
+    ...readJobs(jobRecommendations, type),
   };
 }
 

@@ -19,7 +19,7 @@ const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(
 const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 const code = randomBytes(18).toString("base64url");
 const questions = JSON.parse(readFileSync(new URL("../src/content/questions.json", import.meta.url), "utf8"));
-const interpretations = JSON.parse(readFileSync(new URL("../src/content/interpretations.json", import.meta.url), "utf8"));
+const jobCatalog = JSON.parse(readFileSync(new URL("../src/content/job-catalog.json", import.meta.url), "utf8"));
 const evidence = { phase, checks: [], screens: [], cleanup: false };
 let browser;
 let courseId;
@@ -211,7 +211,7 @@ try {
       return data;
     };
     const result = await getResult();
-    // UI에서 저장된 응답을 독립 집계해 기존 채점 및 추천직업과 대조한다.
+    // UI에서 저장된 응답을 독립 집계해 채점 및 최신 PDF 추천직업과 대조한다.
     const generalScores = Object.fromEntries(["R", "I", "A", "S", "E", "C"].map((type) => [type, questions.general.filter((q) => q.type === type && expected[q.id]).length]));
     const selectedIds = rows.filter((r) => r.item_id.startsWith("a") && r.value).map((r) => r.item_id);
     const adjectiveScores = Object.fromEntries(Object.keys(generalScores).map((type) => [type, questions.adjectives.filter((q) => q.type === type && selectedIds.includes(q.id)).length]));
@@ -223,8 +223,8 @@ try {
     assert.equal(result.top1, ranked[0]);
     assert.equal(result.top2, ranked[1]);
     for (const entry of result.job_recommendations) {
-      const source = interpretations.types[entry.type];
-      assert.deepEqual(entry.jobs, [...new Set([...source.seniorJobs, ...source.generalJobs])].slice(0, 5));
+      const expectedJobs = jobCatalog.representatives[entry.type].map(({ displayId }) => jobCatalog.display.find((job) => job.id === displayId).name);
+      assert.deepEqual(entry.jobs, expectedJobs);
     }
     pass(`${width} saved 42+5 answers -> score, ranking, recommendations regression`);
     if (after) {

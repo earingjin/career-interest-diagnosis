@@ -67,7 +67,7 @@ export function Intro({ footer }: { footer: React.ReactNode }) {
       <section className={styles.hero} aria-labelledby="home-title">
         <div className={styles.inner}>
           <Image src="/jm-career-logo.png" width={669} height={188} alt="제이엠커리어" className={styles.logo} priority />
-          <h1 id="home-title" className={styles.title}>나의 직업 흥미를<br />알아보세요</h1>
+          <h1 id="home-title" className={styles.title}>경찰전직지원센터<br />직업 흥미 진단</h1>
           <p className={styles.lead}>질문에 답하고 나의 흥미 유형과 어울리는 직업을 확인해요.</p>
           <details className={styles.details}>
             <summary>진행 방법 · 시작하기 전에</summary>

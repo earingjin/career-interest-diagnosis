@@ -190,6 +190,23 @@ describe("buildResultView: 1·2순위 검증", () => {
 });
 
 describe("buildResultView: 추천직업", () => {
+  it("과거 저장 결과는 그대로 읽고 생략 여부를 임의로 추정하지 않는다", () => {
+    const row = normalRow();
+    const view = buildResultView(base(row));
+    expect(view.top1.jobs).toEqual(["S직업1", "S직업2", "S직업3", "S직업4", "S직업5"]);
+    expect(view.top1.jobsTruncated).toBe(false);
+  });
+
+  it("새 결과의 생략 여부는 해당 이용자의 두 유형에만 전달한다", () => {
+    const row = normalRow();
+    row.job_recommendations = [
+      { type: "S", jobs: ["원문 직업"], count: 1, hasMore: true },
+      { type: "E", jobs: ["전체 표시"], count: 1, hasMore: false },
+    ];
+    const view = buildResultView(base(row));
+    expect(view.top1.jobsTruncated).toBe(true);
+    expect(view.top2.jobsTruncated).toBe(false);
+  });
   it("count 가 jobs.length 와 다르면 거부한다", () => {
     const row = normalRow();
     row.job_recommendations = [

@@ -60,8 +60,8 @@ function GroupList({ section }: { section: ResultTypeSection }) {
 function JobList({ section }: { section: ResultTypeSection }) {
   return (
     <ol className={styles.jobList} aria-label="추천직업">
-      {section.jobs.map((job) => (
-        <li key={job}>{job}</li>
+      {section.jobs.map((job, index) => (
+        <li key={job}>{job}{section.jobsTruncated && index === section.jobs.length - 1 ? " 등" : ""}</li>
       ))}
     </ol>
   );
@@ -335,8 +335,8 @@ function PrintBand({ section, rank }: { section: ResultTypeSection; rank: 1 | 2 
       <div className={styles.bandJobs}>
         <p className={styles.bandRowLabel}>추천직업</p>
         <ol className={styles.chips} aria-label="추천직업">
-          {section.jobs.map((job) => (
-            <li key={job}>{job}</li>
+          {section.jobs.map((job, index) => (
+            <li key={job}>{job}{section.jobsTruncated && index === section.jobs.length - 1 ? " 등" : ""}</li>
           ))}
         </ol>
       </div>

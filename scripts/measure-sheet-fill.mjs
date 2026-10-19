@@ -22,9 +22,9 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 const LABEL = process.argv[2] ?? "current";
-const PORT = 3112;
-const FAKE_DB_PORT = 54399;
-const DEBUG_PORT = 9345;
+const PORT = Number(process.env.SHEET_PORT ?? 3112);
+const FAKE_DB_PORT = PORT + 50000;
+const DEBUG_PORT = PORT + 6200;
 const BASE = `http://127.0.0.1:${PORT}`;
 const TYPES = ["R", "I", "A", "S", "E", "C"];
 const NICKNAME = "가나다라마바사아자차"; // 닉네임 최대 길이(10자)
@@ -37,8 +37,13 @@ for (const t1 of TYPES) for (const t2 of TYPES) if (t1 !== t2) pairs.push(`${t1}
 const idOf = (pair) => `00000000-0000-4000-8000-${String(pairs.indexOf(pair) + 1).padStart(12, "0")}`;
 
 const jobGolden = JSON.parse(readFileSync(new URL("../src/lib/scoring/__tests__/__fixtures__/jobs-30.json", import.meta.url), "utf8"));
+const catalog = JSON.parse(readFileSync(new URL("../src/content/job-catalog.json", import.meta.url), "utf8"));
 /** 1·2순위 조합의 추천직업. 앱의 selectJobs 결과를 담은 골든 파일(jobCatalog.test.ts 가 앱 로직과 일치함을 검증)을 그대로 쓴다. */
 function jobsFor(top1, top2) {
+  if (process.env.SHEET_ALL_JOBS === "1") return [top1, top2].map((type) => {
+    const jobs = catalog.sources.filter((entry) => entry.type === type).map((entry) => entry.rawName);
+    return { type, jobs, count: jobs.length, hasMore: false };
+  });
   const recs = jobGolden[top1 + top2];
   if (!recs) throw new Error("골든 파일에 없는 조합: " + top1 + top2);
   return structuredClone(recs);
@@ -67,9 +72,13 @@ const fakeDb = http.createServer((req, res) => {
   const url = new URL(req.url, "http://fake");
   fakeHits.push(`${req.method} ${url.pathname}`);
   const id = url.searchParams.get("id")?.replace(/^eq\./, "");
-  const pair = pairs.find((p) => idOf(p) === id);
+  const tokenHash = url.searchParams.get("token_hash")?.replace(/^eq\./, "");
+  const pair = pairs.find((p) => idOf(p) === id || createHash("sha256").update(`measure-${p}`).digest("hex") === tokenHash);
+  const data = pair && tokenHash
+    ? { id: idOf(pair), status: "submitted", current_step: "result", courses: { code: pair, name: "측정용 과정" } }
+    : pair ? sessionRow(pair) : null;
   res.writeHead(200, { "Content-Type": "application/json" });
-  res.end(JSON.stringify(req.method === "GET" && url.pathname === "/rest/v1/sessions" && pair ? [sessionRow(pair)] : []));
+  res.end(JSON.stringify(req.method === "GET" && url.pathname === "/rest/v1/sessions" && data ? [data] : []));
 });
 
 function findChrome() {
@@ -87,14 +96,16 @@ function findChrome() {
 async function cdpSession(chromePath, profileDir) {
   const chrome = spawn(chromePath, [
     "--headless=new", `--remote-debugging-port=${DEBUG_PORT}`, `--user-data-dir=${profileDir}`,
-    "--disable-gpu", "--no-first-run", "--window-size=1280,1400", "about:blank",
-  ], { stdio: "ignore", windowsHide: true });
+    "--disable-gpu", "--no-sandbox", "--disable-extensions", "--no-first-run", "--window-size=1280,1400", "about:blank",
+  ], { stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
+  let chromeErrors = "";
+  chrome.stderr.on("data", (chunk) => { chromeErrors += chunk.toString(); });
   let target;
   for (let i = 0; i < 60 && !target; i++) {
     try { target = (await (await fetch(`http://127.0.0.1:${DEBUG_PORT}/json`)).json()).find((t) => t.type === "page"); } catch { /* 시작 중 */ }
     if (!target) await delay(250);
   }
-  if (!target) { chrome.kill(); throw new Error("Chrome 원격 디버깅에 연결하지 못했습니다."); }
+  if (!target) { chrome.kill(); throw new Error("Chrome 원격 디버깅에 연결하지 못했습니다. " + chromeErrors.slice(-1200)); }
   const ws = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((resolve, reject) => { ws.addEventListener("open", resolve); ws.addEventListener("error", reject); });
   let id = 0;
@@ -105,7 +116,8 @@ async function cdpSession(chromePath, profileDir) {
   });
   const send = (method, params = {}) => new Promise((resolve, reject) => {
     const i = ++id;
-    waiting.set(i, (d) => (d.error ? reject(new Error(`${method}: ${d.error.message}`)) : resolve(d.result)));
+    const timeout = setTimeout(() => { waiting.delete(i); reject(new Error(`${method}: timeout. ${chromeErrors.slice(-1000)}`)); }, 20000);
+    waiting.set(i, (d) => { clearTimeout(timeout); return d.error ? reject(new Error(`${method}: ${d.error.message}`)) : resolve(d.result); });
     ws.send(JSON.stringify({ id: i, method, params }));
   });
   const evaluate = async (expression) => {
@@ -222,6 +234,7 @@ const adminToken = `${encoded}.${createHmac("sha256", secret).update(`jd-admin-s
 
 mkdirSync(OUTPUT, { recursive: true });
 await new Promise((resolve) => fakeDb.listen(FAKE_DB_PORT, "127.0.0.1", resolve));
+console.log("Measurement fixture ready");
 // 서버 프로세스에서 Next 보다 먼저 실행되어 Supabase 요청만 가짜 서버로 돌린다.
 const FETCH_REDIRECT = `
 const target = process.env.MEASURE_FAKE_DB;
@@ -253,8 +266,10 @@ try {
     if (!ready) await delay(250);
   }
   if (!ready) throw new Error("측정 서버 준비 시간 초과");
+  console.log("Measurement app ready");
 
-  session = await cdpSession(chromePath, `${process.cwd()}/scratch/chrome-profile-measure`);
+  session = await cdpSession(chromePath, `${process.cwd()}/scratch/chrome-profile-${LABEL}`);
+  console.log("Measurement Chrome ready");
   const { send, evaluate } = session;
   await send("Page.enable");
   await send("Runtime.enable");
@@ -262,7 +277,7 @@ try {
   await send("Network.setCookie", { name: "jd_admin", value: adminToken, url: BASE, httpOnly: true });
 
   // 첫 로드는 서버·폰트 준비 때문에 값이 흔들리므로 한 번 열어 두고 측정을 시작한다.
-  for (const pair of [pairs[0], ...pairs]) {
+  for (const pair of process.env.SHEET_MOBILE_ONLY === "1" ? [] : [pairs[0], ...pairs]) {
     const warmUp = rows.length === 0 && !rows.warmed;
     await send("Page.navigate", { url: `${BASE}/admin/results/${idOf(pair)}` });
     let found = false;
@@ -287,7 +302,18 @@ try {
     const { data } = await send("Page.printToPDF", { preferCSSPageSize: true, printBackground: true });
     const pdfPages = (Buffer.from(data, "base64").toString("latin1").match(/\/Type\s*\/Page[^s]/g) ?? []).length;
     if (warmUp) { rows.warmed = true; await send("Emulation.setEmulatedMedia", { media: "screen" }); continue; }
-    rows.push({ pair, pdfPages, ...m });
+    const jobMetrics = await evaluate(`(() => {
+      const page = document.querySelector('[data-print-page="2"]');
+      return [...page.querySelectorAll('ol[aria-label="추천직업"]')].map((list) => ({
+        names: [...list.children].map((item) => item.textContent),
+        fontPt: parseFloat(getComputedStyle(list.firstElementChild).fontSize) * 72 / 96,
+        heightMm: list.getBoundingClientRect().height * 25.4 / 96,
+        overflow: list.scrollWidth > list.clientWidth + 1,
+      }));
+    })()`);
+    rows.push({ pair, pdfPages, jobs: jobMetrics, ...m });
+    writeFileSync(`${OUTPUT}/${LABEL}-${pair}.pdf`, Buffer.from(data, "base64"));
+    console.log(`${LABEL} ${pair}: ${pdfPages} pages, ${jobMetrics.map((job) => job.names.length).join("+")} jobs`);
     if (SCREENSHOT_PAIRS.includes(pair)) {
       // 흑백 인쇄 확인용: 회색조로 바꾼 화면을 저장한다.
       await evaluate("document.documentElement.style.filter = 'grayscale(1)'; true");
@@ -297,6 +323,38 @@ try {
       writeFileSync(`${OUTPUT}/${LABEL}-${pair}.pdf`, Buffer.from(data, "base64"));
     }
     await send("Emulation.setEmulatedMedia", { media: "screen" });
+  }
+  if (process.env.SHEET_MOBILE === "1" || process.env.SHEET_MOBILE_ONLY === "1") {
+    const mobile = [];
+    await send("Emulation.setEmulatedMedia", { media: "screen" });
+    for (const pair of ["SE", "RI", "AC"]) for (const width of [360, 390]) {
+      await send("Network.setCookie", { name: "jd_session", value: `measure-${pair}`, url: BASE, httpOnly: true });
+      await send("Emulation.setDeviceMetricsOverride", { width, height: 800, deviceScaleFactor: 1, mobile: true });
+      await send("Page.navigate", { url: `${BASE}/c/${pair}/result` });
+      let ready = false;
+      for (let attempt = 0; attempt < 80 && !ready; attempt++) {
+        await delay(100);
+        ready = await evaluate(`!!document.querySelector('ol[aria-label="추천직업"]')`).catch(() => false);
+      }
+      if (!ready) throw new Error(`Mobile ${pair} failed to load`);
+      await evaluate("document.fonts.ready.then(() => true)");
+      const metrics = await evaluate(`(() => ({
+        overflow: document.documentElement.scrollWidth > innerWidth,
+        jobs: [...document.querySelectorAll('ol[aria-label="추천직업"]')].map((list) => [...list.children].map((item) => item.textContent)),
+        styles: [...document.querySelectorAll('ol[aria-label="추천직업"] li')].map((item) => { const s = getComputedStyle(item); return [s.fontSize, s.lineHeight, s.padding, s.border, s.borderRadius]; }),
+        html: document.querySelector('[class*="mobile"]').outerHTML,
+      }))()`);
+      if (metrics.overflow) throw new Error(`Mobile ${pair}/${width}: horizontal overflow`);
+      const expected = jobsFor(...pair).map((entry) => entry.jobs);
+      if (JSON.stringify(metrics.jobs) !== JSON.stringify(expected)) throw new Error(`Mobile ${pair}: recommendation mismatch`);
+      const response = await (await fetch(`${BASE}/c/${pair}/result`, { headers: { cookie: `jd_session=measure-${pair}` } })).text();
+      for (const marker of ["rawName", "sourceId", "representatives", catalog.document.sha256]) if (response.includes(marker)) throw new Error(`Catalog metadata exposed: ${marker}`);
+      const shot = await send("Page.captureScreenshot", { captureBeyondViewport: true });
+      writeFileSync(`${OUTPUT}/${LABEL}-mobile-${pair}-${width}.png`, Buffer.from(shot.data, "base64"));
+      mobile.push({ pair, width, ...metrics });
+      console.log(`${LABEL} mobile ${pair}/${width}: no overflow, matching jobs`);
+    }
+    writeFileSync(`${OUTPUT}/${LABEL}-mobile.json`, JSON.stringify(mobile, null, 2));
   }
 } finally {
   session?.close();
@@ -320,7 +378,7 @@ const lines = [
     const [a, b] = r.pages;
     const problems = r.pages.flatMap((p) => p.problems.map((x) => `${p.page}쪽 ${x}`));
     if (r.pageCount !== 2) problems.push(`결과지 ${r.pageCount}장`);
-    if (r.pdfPages !== 2) problems.push(`PDF ${r.pdfPages}쪽`);
+    if (r.pdfPages !== 3) problems.push(`PDF ${r.pdfPages}쪽`);
     return `| ${r.pair} | ${r.pdfPages} | ${fmt(a.bottomGap)} | ${fmt(a.blockGap)} | ${fmt(a.inkGap)} | ${fmt(a.naturalSlack)} | ${fmt(b.bottomGap)} | ${fmt(b.blockGap)} | ${fmt(b.inkGap)} | ${fmt(b.naturalSlack)} | ${fmt(Math.min(a.edge, b.edge))} | ${fmt(Math.min(a.minFontPt, b.minFontPt))} | ${problems.join("; ") || "없음"} |`;
   }),
 ];
