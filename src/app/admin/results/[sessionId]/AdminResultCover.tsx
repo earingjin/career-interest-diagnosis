@@ -31,7 +31,7 @@ export function AdminResultCover({ view }: Props) {
       </header>
 
       <main className={styles.content}>
-        <Image className={styles.policeLogo} src="/police-logo.png" width={256} height={256} alt="경찰 로고" />
+        <Image className={styles.emblem} src="/hexagon-emblem.png" width={1341} height={1173} alt="육각 네트워크 나침반 엠블럼" />
         <p className={styles.kicker}>CAREER INTEREST ASSESSMENT</p>
         <h1>직업 흥미 검사</h1>
         <p className={styles.tagline}>나의 경험과 흥미를 바탕으로 새로운 직업의 가능성을 탐색합니다.</p>
@@ -49,8 +49,8 @@ export function AdminResultCover({ view }: Props) {
           </div>
         </dl>
         <p className={styles.privacyNotice}>
-          본 문서에는 개인의 직업흥미 진단결과가 포함되어 있습니다. 열람 및 보관 시<br />
-          개인정보 보호에 유의해 주시기 바랍니다.
+          본 검사는 워크넷 직업선호도검사를 참고하여 퇴직경찰의 진로탐색 목적에 맞게 간소화·재구성 하였습니다.<br />
+          본 문서에는 개인의 직업흥미 진단결과가 포함되어 있으니, 개인정보 보호에 유의해 주시기 바랍니다.
         </p>
         <p className={styles.footerBrand}>경찰전직지원센터 <span>|</span> 제이엠커리어</p>
       </footer>

@@ -60,9 +60,9 @@
   text-align: center;
 }
 
-.policeLogo {
+.emblem {
   width: 50mm;
-  height: 50mm;
+  height: auto;
   margin-bottom: 7mm;
   object-fit: contain;
 }
