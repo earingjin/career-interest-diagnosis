@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { useRouter } from "next/navigation";
 import { GENERAL_COUNT, MIN_ADJECTIVE_SELECTIONS } from "@/lib/session/progress";
 import styles from "./TestFlow.module.css";
@@ -24,6 +24,36 @@ type Props = {
 
 const NETWORK_ERROR = "연결에 문제가 생겼어요. 잠시 후 다시 제출해 주세요.";
 const PENDING_ERROR = "저장되지 않은 응답이 있어요. 연결을 확인한 뒤 다시 제출해 주세요.";
+
+const WAITING_MESSAGES = [
+  "응답 내용을 확인하고 있어요.",
+  "나의 직업 흥미를 살펴보고 있어요.",
+  "새로운 직업 가능성을 탐색하고 있어요.",
+  "곧 진단 결과를 확인하실 수 있어요.",
+];
+
+function SubmissionLoading() {
+  const [messageIndex, setMessageIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setMessageIndex((index) => (index + 1) % WAITING_MESSAGES.length);
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  return (
+    <section className={styles.submissionLoading} aria-labelledby="submission-title" aria-busy="true">
+      <h1 id="submission-title" className={styles.submissionTitle}>나의 새로운 가능성을 찾고 있어요</h1>
+      <p className={styles.submissionDescription}>지금까지의 경험과 직업 흥미를 바탕으로 결과를 준비하고 있습니다.</p>
+      <div className={styles.submissionSpinner} aria-hidden="true" />
+      <p className={styles.submissionMessage} role="status" aria-live="polite" aria-atomic="true">
+        <span key={messageIndex}>{WAITING_MESSAGES[messageIndex]}</span>
+      </p>
+      <p className={styles.submissionNote}>경찰에서 쌓아온 경험은 새로운 직업을 탐색하는 데 소중한 자산이 됩니다.</p>
+    </section>
+  );
+}
 
 export function ReviewScreen({
   courseCode,
@@ -79,6 +109,8 @@ export function ReviewScreen({
     setBusy(false);
     onBusyChange(false);
   }
+
+  if (busy) return <SubmissionLoading />;
 
   return (
     <>

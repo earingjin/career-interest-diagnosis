@@ -1,3 +1,80 @@
+.submissionLoading {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 0.5rem;
+  text-align: center;
+  color: #203654;
+}
+
+.submissionTitle {
+  max-width: 28rem;
+  font-size: clamp(1.5rem, 4vw, 1.875rem);
+  font-weight: 700;
+  line-height: 1.5;
+  word-break: keep-all;
+}
+
+.submissionDescription,
+.submissionNote {
+  max-width: 30rem;
+  font-size: 1.125rem;
+  line-height: 1.7;
+  word-break: keep-all;
+}
+
+.submissionDescription {
+  margin-top: 1rem;
+  color: #45566c;
+}
+
+.submissionSpinner {
+  flex: none;
+  width: 4rem;
+  height: 4rem;
+  margin: 2.5rem 0 1.5rem;
+  border: 0.3rem solid #dce6f5;
+  border-top-color: #2856bc;
+  border-radius: 50%;
+  animation: submissionSpin 1.6s linear infinite;
+}
+
+.submissionMessage {
+  min-height: 3.5em;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.7;
+  word-break: keep-all;
+}
+
+.submissionMessage span {
+  display: block;
+  animation: submissionFade 3s ease-in-out;
+}
+
+.submissionNote {
+  margin-top: 2rem;
+  color: #45566c;
+}
+
+@keyframes submissionSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes submissionFade {
+  0%, 100% { opacity: 0; }
+  12%, 88% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .submissionSpinner,
+  .submissionMessage span {
+    animation: none;
+  }
+}
+
 .main {
   display: flex;
   flex-direction: column;
