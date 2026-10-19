@@ -345,7 +345,9 @@ try {
         html: document.querySelector('[class*="mobile"]').outerHTML,
       }))()`);
       if (metrics.overflow) throw new Error(`Mobile ${pair}/${width}: horizontal overflow`);
-      const expected = jobsFor(...pair).map((entry) => entry.jobs);
+      const expected = jobsFor(...pair).map((entry) => entry.jobs.map((job, index, jobs) => (
+        index === jobs.length - 1 ? `${job} 등` : job
+      )));
       if (JSON.stringify(metrics.jobs) !== JSON.stringify(expected)) throw new Error(`Mobile ${pair}: recommendation mismatch`);
       const response = await (await fetch(`${BASE}/c/${pair}/result`, { headers: { cookie: `jd_session=measure-${pair}` } })).text();
       for (const marker of ["rawName", "sourceId", "representatives", catalog.document.sha256]) if (response.includes(marker)) throw new Error(`Catalog metadata exposed: ${marker}`);

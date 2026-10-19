@@ -122,7 +122,7 @@ const GROUP_DEFINITIONS = [
     items: [["경험활용", "careerUse"], ["탐색방향", "careerExplore"]],
   },
   {
-    id: "jobs", title: "추천직업과 확인사항",
+    id: "jobs", title: "퇴직경찰 추천직업",
     items: [["확인사항", "careerCheck"]],
   },
 ] as const;

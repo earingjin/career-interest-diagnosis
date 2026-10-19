@@ -61,7 +61,7 @@ function JobList({ section }: { section: ResultTypeSection }) {
   return (
     <ol className={styles.jobList} aria-label="추천직업">
       {section.jobs.map((job, index) => (
-        <li key={job}>{job}{section.jobsTruncated && index === section.jobs.length - 1 ? " 등" : ""}</li>
+        <li key={job}>{job}{index === section.jobs.length - 1 ? " 등" : ""}</li>
       ))}
     </ol>
   );
@@ -151,8 +151,8 @@ function CombinedDetail({ view }: { view: ResultView }) {
 /** 1·2순위에 공통인 안내. 모바일과 A4 모두 결과 전체에 한 번만 보여준다. */
 function CommonNotes({ view }: { view: ResultView }) {
   return (
-    <section className={styles.notes} aria-label="결과를 볼 때 알아 두세요">
-      <h2 className={styles.notesTitle}>결과를 볼 때 알아 두세요</h2>
+    <section className={styles.notes} aria-label="확인사항">
+      <h2 className={styles.notesTitle}>확인사항</h2>
       <ul className={styles.notesList}>
         {view.commonNotes.map((note) => (
           <li key={note}>{note}</li>
@@ -192,11 +192,50 @@ function MobileScoreTable({ view }: { view: ResultView }) {
   );
 }
 
+/** A4 1페이지: 육각형 아래의 유형별 점수 가로표. 점수와 1·2순위 강조는 view.totals 를 그대로 쓴다. */
+function PrintTypeScores({ view }: { view: ResultView }) {
+  return (
+    <section className={styles.typeScores} aria-label="유형별 흥미 점수">
+      <h2 className={styles.pSectionTitle}>유형별 흥미 점수</h2>
+      <table className={styles.typeScoreTable}>
+        <thead>
+          <tr>
+            {view.totals.map((row) => (
+              <th key={row.type} scope="col" data-type-score-head={row.type}>{row.nameKo}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            {view.totals.map((row) => {
+              const rank = rankLabel(view, row.type);
+              return (
+                <td
+                  key={row.type}
+                  data-type-score={row.type}
+                  data-rank={rank || undefined}
+                  className={rank === "1순위" ? styles.typeScoreFirst : rank === "2순위" ? styles.typeScoreSecond : undefined}
+                >
+                  <span className={styles.typeScoreValue}>{row.total}점</span>
+                  {rank && <span className={styles.typeScoreRank}>{rank}</span>}
+                </td>
+              );
+            })}
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
 /** A4 shows all six descriptions, with the original top-two emphasis. */
 function PrintScoreTable({ view }: { view: ResultView }) {
   return (
     <section className={styles.typeDescriptions} aria-label={TYPE_DESCRIPTIONS_TITLE}>
-      <h2 className={styles.pSectionTitle}>{TYPE_DESCRIPTIONS_TITLE}</h2>
+      <h2 className={styles.pSectionTitle}>
+        {TYPE_DESCRIPTIONS_TITLE}
+        <span className={styles.typeDescriptionPair}>(흥미유형 : {view.top1.type}{view.top2.type})</span>
+      </h2>
       <ol className={styles.typeDescriptionList}>
         {view.totals.map((row) => {
           const rank = rankLabel(view, row.type);
@@ -333,10 +372,10 @@ function PrintBand({ section, rank }: { section: ResultTypeSection; rank: 1 | 2 
       </div>
 
       <div className={styles.bandJobs}>
-        <p className={styles.bandRowLabel}>추천직업</p>
+        <p className={`${styles.bandRowLabel} ${styles.bandJobLabel}`}>퇴직경찰<br />추천직업</p>
         <ol className={styles.chips} aria-label="추천직업">
           {section.jobs.map((job, index) => (
-            <li key={job}>{job}{section.jobsTruncated && index === section.jobs.length - 1 ? " 등" : ""}</li>
+            <li key={job}>{job}{index === section.jobs.length - 1 ? " 등" : ""}</li>
           ))}
         </ol>
       </div>
@@ -378,9 +417,11 @@ function PrintLayout({ view }: { view: ResultView }) {
         <div className={styles.pOverview}>
           <RankSummary view={view} />
           <div className={styles.pHexagon}>
-            <ResultHexagon totals={view.totals} />
+            <ResultHexagon totals={view.totals} showScores={false} />
           </div>
         </div>
+
+        <PrintTypeScores view={view} />
 
         <CombinedInterpretation view={view} />
 

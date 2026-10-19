@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { ResultView } from "@/lib/result/view";
 import styles from "./cover.module.css";
 
@@ -26,18 +27,11 @@ export function AdminResultCover({ view }: Props) {
           </svg>
           <span>경찰전직지원센터</span>
         </div>
-        <span className={styles.documentLabel}>CONFIDENTIAL REPORT</span>
+        <Image className={styles.documentLogo} src="/jm-career-logo.png" width={669} height={188} alt="제이엠커리어" />
       </header>
 
       <main className={styles.content}>
-        <div className={styles.lockIcon} aria-hidden="true">
-          <svg viewBox="0 0 80 92">
-            <rect x="12" y="37" width="56" height="45" rx="6" />
-            <path d="M25 37V25a15 15 0 0 1 30 0v12" />
-            <circle cx="40" cy="58" r="4" />
-            <path d="M40 62v9" />
-          </svg>
-        </div>
+        <Image className={styles.policeLogo} src="/police-logo.png" width={256} height={256} alt="경찰 로고" />
         <p className={styles.kicker}>CAREER INTEREST ASSESSMENT</p>
         <h1>직업 흥미 검사</h1>
         <p className={styles.tagline}>나의 경험과 흥미를 바탕으로 새로운 직업의 가능성을 탐색합니다.</p>
@@ -55,7 +49,8 @@ export function AdminResultCover({ view }: Props) {
           </div>
         </dl>
         <p className={styles.privacyNotice}>
-          본 문서에는 개인의 직업흥미 진단결과가 포함되어 있습니다. 열람 및 보관 시 개인정보 보호에 유의해 주시기 바랍니다.
+          본 문서에는 개인의 직업흥미 진단결과가 포함되어 있습니다. 열람 및 보관 시<br />
+          개인정보 보호에 유의해 주시기 바랍니다.
         </p>
         <p className={styles.footerBrand}>경찰전직지원센터 <span>|</span> 제이엠커리어</p>
       </footer>

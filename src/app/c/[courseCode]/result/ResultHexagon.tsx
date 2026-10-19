@@ -36,9 +36,11 @@ function labelPlacement(type: RiasecType): { x: number; y: number; anchor: "star
 type Props = {
   totals: ResultTotalRow[];
   className?: string;
+  /** false 면 꼭짓점 라벨에서 점수 숫자만 뺀다. A4 결과지가 점수를 표로 따로 보여줄 때 쓴다. */
+  showScores?: boolean;
 };
 
-export function ResultHexagon({ totals, className }: Props) {
+export function ResultHexagon({ totals, className, showScores = true }: Props) {
   const byType = new Map(totals.map((row) => [row.type, row]));
   const description = RIASEC_ORDER.map((t) => {
     const row = byType.get(t);
@@ -53,7 +55,7 @@ export function ResultHexagon({ totals, className }: Props) {
   return (
     <svg
       className={className}
-      viewBox="0 0 300 300"
+      viewBox={showScores ? "0 0 300 300" : "0 8 300 276"} // 점수 줄이 없으면 위아래 여백만 줄인다. 눈금·다각형 크기는 같다.
       role="img"
       aria-label={`유형별 점수 그래프: ${description}`}
       style={{ width: "100%", maxWidth: 340, height: "auto", overflow: "visible" }}
@@ -112,9 +114,11 @@ export function ResultHexagon({ totals, className }: Props) {
             <tspan x={fmt(x)}>
               {type} {row.nameKo}
             </tspan>
-            <tspan x={fmt(x)} dy={17}>
-              {row.total}점
-            </tspan>
+            {showScores && (
+              <tspan x={fmt(x)} dy={17}>
+                {row.total}점
+              </tspan>
+            )}
           </text>
         );
       })}
