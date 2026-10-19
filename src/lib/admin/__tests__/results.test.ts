@@ -10,7 +10,7 @@ vi.mock("next/headers", () => ({ cookies: async () => ({
   get: (name: string) => name === "jd_admin" && state.cookie ? { value: state.cookie } : undefined,
 }) }));
 
-type Row = { id: string; nickname: string; status: string; submitted_at: string; courses: { name: string }; results: { top1: string; top2: string } | null };
+type Row = { id: string; nickname: string; phone_key: string | null; status: string; submitted_at: string; courses: { name: string }; results: { top1: string; top2: string } | null };
 let rows: Row[] = [];
 // 실제 supabase-js가 생성하는 URL로 필터/정렬/페이지 이동을 검증한다.
 async function fetchRows(input: RequestInfo | URL) {
@@ -50,18 +50,21 @@ vi.mock("@/lib/supabase/server", () => ({
 
 import { encodeResultCursor, loadAdminResults, parseResultsFilter, RESULTS_PAGE_SIZE } from "../results";
 import { AdminListInputError } from "../date";
+import { phoneKey } from "../../security/hash";
 let config: AdminConfig;
 const DATE = "2026-10-14";
+const HASH_SECRET = "h".repeat(40);
 const id = (n: number) => `00000000-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
 function row(n: number, over: Partial<Row> = {}): Row {
-  return { id: id(n), nickname: "같은닉네임", status: "submitted", submitted_at: "2026-10-14T03:00:00.123456+00:00", courses: { name: "과정" }, results: { top1: "S", top2: "E" }, ...over };
+  return { id: id(n), nickname: "같은닉네임", phone_key: phoneKey(HASH_SECRET, "1234"), status: "submitted", submitted_at: "2026-10-14T03:00:00.123456+00:00", courses: { name: "과정" }, results: { top1: "S", top2: "E" }, ...over };
 }
 beforeAll(async () => { config = await makeConfig(); });
 beforeEach(() => {
   for (const [name, value] of Object.entries(envFor(config))) vi.stubEnv(name, value);
+  vi.stubEnv("SESSION_HASH_SECRET", HASH_SECRET);
   state.cookie = createAdminSessionToken(config); state.calls = []; state.fail = false; rows = [];
 });
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
 describe("관리자 목록 접근", () => {
   it.each(["missing", "customer", "expired", "tampered", "unconfigured"])("%s 인증은 DB 조회 전에 차단한다", async (kind) => {
@@ -87,8 +90,29 @@ describe("완료 고객 목록", () => {
     expect(page.items[1]).toMatchObject({ top1: null, top2: null, error: "결과 없음 · 확인 필요" });
     const url = state.calls[0];
     expect(url.pathname).toBe("/rest/v1/sessions");
-    expect(url.searchParams.get("select")).toBe("id,nickname,submitted_at,courses(name),results(top1,top2)");
+    expect(url.searchParams.get("select")).toBe("id,nickname,phone_key,submitted_at,courses(name),results(top1,top2)");
     expect(url.searchParams.get("limit")).toBe(String(RESULTS_PAGE_SIZE + 1));
+  });
+  it("동명이인을 휴대폰 뒷자리로 구분하고, phone_key 원값은 내보내지 않는다", async () => {
+    rows = [row(1, { phone_key: phoneKey(HASH_SECRET, "0012") }), row(2, { phone_key: phoneKey(HASH_SECRET, "9876") })];
+    const page = await loadAdminResults({ date: DATE });
+    expect(page.items.map((r) => [r.nickname, r.phoneLast4])).toEqual([["같은닉네임", "9876"], ["같은닉네임", "0012"]]);
+    const json = JSON.stringify(page);
+    for (const r of rows) expect(json).not.toContain(r.phone_key!);
+    expect(json).not.toContain("phone_key");
+  });
+  it("복원할 수 없는 phone_key 는 null 이며 나머지 정보는 그대로 보여준다", async () => {
+    rows = [row(1, { phone_key: phoneKey("o".repeat(40), "1234") }), row(2, { phone_key: "admin-list-test-2" })];
+    const page = await loadAdminResults({ date: DATE });
+    expect(page.items).toHaveLength(2);
+    expect(page.items.every((r) => r.phoneLast4 === null && r.error === null && r.top1 === "S")).toBe(true);
+  });
+  it("SESSION_HASH_SECRET 이 없어도 목록은 열리고 휴대폰만 확인 불가", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubEnv("SESSION_HASH_SECRET", "");
+    rows = [row(1)];
+    const page = await loadAdminResults({ date: DATE });
+    expect(page.items[0]).toMatchObject({ id: id(1), phoneLast4: null, error: null });
   });
   it("잘못된 순위도 오류 행으로 남긴다", async () => {
     rows = [row(1, { results: { top1: "X", top2: "R" } }), row(2, { results: { top1: "R", top2: "R" } })];

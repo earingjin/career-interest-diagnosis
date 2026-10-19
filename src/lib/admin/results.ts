@@ -3,6 +3,7 @@ import { createServerClient } from "../supabase/server";
 import { requireAdmin } from "./guard";
 import { AdminListInputError, seoulDayRange, seoulToday } from "./date";
 import { RIASEC_ORDER, type RiasecType } from "../../content/types";
+import { createPhoneLast4Resolver } from "./phoneLast4";
 
 export const RESULTS_PAGE_SIZE = 50;
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -17,14 +18,15 @@ export type ResultsFilter = {
 export type AdminResultItem = {
   id: string;
   nickname: string;
-  courseName: string;
+  /** 진단 시작 때 입력한 휴대폰 뒷자리 4자리. 복원할 수 없으면 null. phone_key 원값은 담지 않는다. */
+  phoneLast4: string | null;
   submittedAt: string;
   top1: RiasecType | null;
   top2: RiasecType | null;
   error: string | null;
 };
 type JoinedRow = {
-  id: string; nickname: string; submitted_at: string;
+  id: string; nickname: string; phone_key: string | null; submitted_at: string;
   courses: { name: string } | { name: string }[] | null;
   results: { top1: string; top2: string } | { top1: string; top2: string }[] | null;
 };
@@ -77,7 +79,7 @@ export async function loadAdminResults(params: SearchParams) {
   const filter = parseResultsFilter(params);
   const ascending = filter.direction === "before";
   let query = createServerClient().from("sessions")
-    .select("id, nickname, submitted_at, courses(name), results(top1, top2)")
+    .select("id, nickname, phone_key, submitted_at, courses(name), results(top1, top2)")
     .eq("status", "submitted")
     .gte("submitted_at", filter.start).lt("submitted_at", filter.end)
     .order("submitted_at", { ascending }).order("id", { ascending })
@@ -93,12 +95,13 @@ export async function loadAdminResults(params: SearchParams) {
   const more = raw.length > RESULTS_PAGE_SIZE;
   const rows = raw.slice(0, RESULTS_PAGE_SIZE);
   if (ascending) rows.reverse();
+  const resolvePhone = createPhoneLast4Resolver();
   const items: AdminResultItem[] = rows.map((row) => {
     const course = one(row.courses);
     const result = one(row.results);
     const valid = result && isType(result.top1) && isType(result.top2) && result.top1 !== result.top2;
     return {
-      id: row.id, nickname: row.nickname, courseName: course?.name ?? "과정 정보 없음",
+      id: row.id, nickname: row.nickname, phoneLast4: resolvePhone(row.phone_key),
       submittedAt: row.submitted_at,
       top1: valid ? result.top1 as RiasecType : null, top2: valid ? result.top2 as RiasecType : null,
       error: !result ? "결과 없음 · 확인 필요" : !valid ? "결과 유형 오류 · 확인 필요" : !course ? "과정 정보 없음 · 확인 필요" : null,

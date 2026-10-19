@@ -49,13 +49,13 @@ async function ResultsContent({ searchParams }: PageProps<"/admin/results">) {
         </p> : <div className={styles.tableWrap}>
           <table className={styles.table}>
             <caption className={styles.caption}>진단 완료 고객 목록</caption>
-            <thead><tr><th scope="col">성명</th><th scope="col">과정명</th><th scope="col">완료시각</th><th scope="col">1순위</th><th scope="col">2순위</th><th scope="col">상태</th></tr></thead>
+            <thead><tr><th scope="col">성명</th><th scope="col">휴대폰</th><th scope="col">완료시각</th><th scope="col">1순위</th><th scope="col">2순위</th><th scope="col">상태</th></tr></thead>
             <tbody>{list.items.map((item) => <tr key={item.id}>
               <td>
                 <Link prefetch={false} className={styles.rowLink} href={`/admin/results/${item.id}`}>
                   {item.nickname}
                 </Link>
-              </td><td>{item.courseName}</td>
+              </td><td>{item.phoneLast4 ?? "확인 불가"}</td>
               <td><time dateTime={item.submittedAt}>{formatSeoulTime(item.submittedAt)}</time></td>
               <td>{item.top1 ? `${item.top1} · ${TYPE_NAMES[item.top1]}` : "—"}</td>
               <td>{item.top2 ? `${item.top2} · ${TYPE_NAMES[item.top2]}` : "—"}</td>
